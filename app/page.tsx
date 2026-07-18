@@ -41,6 +41,19 @@ export default function HomePage() {
 
   const addresses = (marketAddresses as Address[] | undefined) ?? [];
 
+  // 批量读取所有市场的 question（用于搜索）
+  const { data: questionsData, isLoading: isQuestionsLoading } = useReadContracts({
+    contracts: addresses.map((addr) => ({
+      address: addr,
+      abi: MARKET_ABI,
+      functionName: "question" as const,
+    })),
+    query: {
+      enabled: addresses.length > 0,
+      refetchInterval: 60_000, // 文本不常变，刷新频率降低
+    },
+  });
+
   // 批量读取所有市场的 status 和 timeUntilSettlement，仅在"即将结算" Tab 激活时启用
   const { data: closingData, isLoading: isClosingDataLoading } = useReadContracts({
     contracts: addresses.flatMap((addr) => [
@@ -53,7 +66,7 @@ export default function HomePage() {
     },
   });
 
-  const isLoading = isCountLoading || isMarketsLoading || (activeTab === "closing" && isClosingDataLoading);
+  const isLoading = isCountLoading || isMarketsLoading || isQuestionsLoading || (activeTab === "closing" && isClosingDataLoading);
 
   // 根据 Tab 计算展示地址列表
   let displayAddresses: Address[];
@@ -81,10 +94,13 @@ export default function HomePage() {
     displayAddresses = closingMarkets.map((m) => m.addr);
   }
 
+  // 按问题文本进行搜索过滤
   const filteredAddresses = searchQuery
-    ? displayAddresses.filter((addr) =>
-        addr.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+    ? displayAddresses.filter((addr) => {
+        const index = addresses.indexOf(addr);
+        const questionText = questionsData?.[index]?.result as string | undefined;
+        return questionText && questionText.toLowerCase().includes(searchQuery.toLowerCase());
+      })
     : displayAddresses;
 
   // 创建成功回调：只做静默刷新，跳转逻辑由 CreateModal 内部处理
