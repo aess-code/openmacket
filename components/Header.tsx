@@ -79,15 +79,18 @@ export default function Header() {
       <header className="sticky top-0 z-40 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800/60">
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center hover:opacity-90 transition-opacity">
+          <Link href="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity group">
             <Image
-              src="/logo.png"
-              alt="Pulse Viewstake"
-              width={120}
-              height={40}
-              className="h-9 w-auto object-contain"
+              src="/icon.png"
+              alt="Pulse"
+              width={32}
+              height={32}
+              className="h-8 w-8 object-contain drop-shadow-[0_0_6px_rgba(99,102,241,0.6)]"
               priority
             />
+            <span className="font-bold text-lg tracking-tight text-zinc-100 group-hover:text-white transition-colors">
+              Pulse
+            </span>
           </Link>
 
           {/* Right side: disconnected / connected */}

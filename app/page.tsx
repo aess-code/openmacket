@@ -134,15 +134,16 @@ export default function HomePage() {
 
       <main className="max-w-3xl mx-auto px-4 pt-6">
         <div className="mb-8">
-          <div className="mb-3">
+          <div className="flex items-center gap-3 mb-2">
             <Image
-              src="/logo.png"
-              alt="Pulse Viewstake"
-              width={200}
-              height={67}
-              className="h-14 w-auto object-contain"
+              src="/icon.png"
+              alt="Pulse"
+              width={48}
+              height={48}
+              className="h-12 w-12 object-contain drop-shadow-[0_0_12px_rgba(99,102,241,0.7)]"
               priority
             />
+            <h1 className="text-3xl font-bold tracking-tight text-zinc-100">Pulse</h1>
           </div>
           <p className="text-zinc-400 text-base">Back your views with real conviction.</p>
         </div>
