@@ -7,7 +7,6 @@ import {
   useDisconnect,
   useBalance,
   useSwitchChain,
-  useChainId,
 } from "wagmi";
 import { sepolia, mainnet } from "wagmi/chains";
 import { USDT_ADDRESS } from "@/constants";
@@ -16,7 +15,7 @@ import dynamic from "next/dynamic";
 
 const WalletModal = dynamic(() => import("./WalletModal"), { ssr: false });
 
-// 支持的链列表（测试阶段只有 Sepolia，上线后加 Base 等）
+// 支持的链列表（用于切换菜单展示）
 const SUPPORTED_CHAINS = [
   {
     id: sepolia.id,
@@ -35,9 +34,9 @@ const SUPPORTED_CHAINS = [
 ];
 
 export default function Header() {
+  // chain 来自 useAccount，随钱包切换实时更新
   const { address, isConnected, chain } = useAccount();
   const { disconnect } = useDisconnect();
-  const chainId = useChainId();
   const { switchChain, isPending: isSwitching } = useSwitchChain();
 
   const [showWalletModal, setShowWalletModal] = useState(false);
@@ -55,7 +54,9 @@ export default function Header() {
     ? address.substring(0, 6) + "..." + address.substring(address.length - 4)
     : "";
 
-  const currentChain = SUPPORTED_CHAINS.find((c) => c.id === chainId);
+  // 从 SUPPORTED_CHAINS 查找当前链的样式配置（用于颜色/标签）
+  // 网络名称直接使用 chain?.name（动态，随钱包切换更新）
+  const currentChainStyle = SUPPORTED_CHAINS.find((c) => c.id === chain?.id);
 
   const copyAddress = useCallback(async () => {
     if (!address) return;
@@ -108,7 +109,7 @@ export default function Header() {
                   <div
                     className={[
                       "w-2 h-2 rounded-full flex-shrink-0",
-                      currentChain ? currentChain.dot : "bg-zinc-500",
+                      currentChainStyle ? currentChainStyle.dot : "bg-zinc-500",
                     ].join(" ")}
                   />
                   <span className="font-mono text-xs">{shortAddress}</span>
@@ -173,7 +174,7 @@ export default function Header() {
                             {/* USDT 余额 */}
                             <p className="text-xs text-zinc-400 mt-0.5">
                               {usdtBalance
-                                ? `${parseFloat(usdtBalance.formatted).toFixed(2)} USDT`
+                                ? `${parseFloat(usdtBalance.formatted).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`
                                 : "— USDT"}
                             </p>
                           </div>
@@ -190,20 +191,21 @@ export default function Header() {
                             <div
                               className={[
                                 "w-2 h-2 rounded-full",
-                                currentChain ? currentChain.dot : "bg-zinc-500",
+                                currentChainStyle ? currentChainStyle.dot : "bg-zinc-500",
                               ].join(" ")}
                             />
+                            {/* 直接使用 chain?.name 动态显示，切换网络后自动更新 */}
                             <span className="text-sm text-zinc-200">
-                              {currentChain ? currentChain.name : "未知网络"}
+                              {chain?.name ?? "未知网络"}
                             </span>
-                            {currentChain && (
+                            {currentChainStyle && (
                               <span
                                 className={[
                                   "text-xs px-1.5 py-0.5 rounded-md bg-zinc-800",
-                                  currentChain.color,
+                                  currentChainStyle.color,
                                 ].join(" ")}
                               >
-                                {currentChain.label}
+                                {currentChainStyle.label}
                               </span>
                             )}
                           </div>
@@ -223,14 +225,14 @@ export default function Header() {
                         {/* 链列表（展开） */}
                         {showChainList && (
                           <div className="border-t border-zinc-800/60 bg-zinc-950/60">
-                            {SUPPORTED_CHAINS.map((chain) => (
+                            {SUPPORTED_CHAINS.map((c) => (
                               <button
-                                key={chain.id}
-                                onClick={() => handleSwitchChain(chain.id)}
-                                disabled={chain.id === chainId || isSwitching}
+                                key={c.id}
+                                onClick={() => handleSwitchChain(c.id)}
+                                disabled={c.id === chain?.id || isSwitching}
                                 className={[
                                   "w-full flex items-center gap-3 px-5 py-2.5 transition-colors text-left",
-                                  chain.id === chainId
+                                  c.id === chain?.id
                                     ? "opacity-50 cursor-default"
                                     : "hover:bg-zinc-800/60 cursor-pointer",
                                 ].join(" ")}
@@ -238,21 +240,21 @@ export default function Header() {
                                 <div
                                   className={[
                                     "w-2 h-2 rounded-full",
-                                    chain.dot,
+                                    c.dot,
                                   ].join(" ")}
                                 />
                                 <span className="text-sm text-zinc-300">
-                                  {chain.name}
+                                  {c.name}
                                 </span>
                                 <span
                                   className={[
                                     "text-xs ml-auto",
-                                    chain.color,
+                                    c.color,
                                   ].join(" ")}
                                 >
-                                  {chain.label}
+                                  {c.label}
                                 </span>
-                                {chain.id === chainId && (
+                                {c.id === chain?.id && (
                                   <Check className="w-3.5 h-3.5 text-emerald-400 ml-1" />
                                 )}
                               </button>
