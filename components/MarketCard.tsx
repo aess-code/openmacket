@@ -39,11 +39,11 @@ export default function MarketCard({ market }: MarketCardProps) {
     e.preventDefault();
     const url = `${window.location.origin}/market/${address}`;
     if (navigator.share) {
-      navigator.share({ title: question || "Macket Market", url }).catch(() => {
-        navigator.clipboard.writeText(url).then(() => toast.success("链接已复制"));
+      navigator.share({ title: question || "Pulse View", url }).catch(() => {
+        navigator.clipboard.writeText(url).then(() => toast.success("Link copied"));
       });
     } else {
-      navigator.clipboard.writeText(url).then(() => toast.success("链接已复制"));
+      navigator.clipboard.writeText(url).then(() => toast.success("Link copied"));
     }
   };
 
@@ -53,26 +53,26 @@ export default function MarketCard({ market }: MarketCardProps) {
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex-1">
             <h3 className="text-lg font-bold text-zinc-100 group-hover:text-white transition-colors leading-snug mb-2 line-clamp-2">
-              {question || "加载中..."}
+              {question || "Loading..."}
             </h3>
             <div className="flex flex-wrap items-center gap-2">
               {status === STATUS_SETTLED ? (
                 <span className="inline-flex items-center gap-1 text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">
-                  <Lock className="w-3 h-3" />已结算
+                  <Lock className="w-3 h-3" />Settled
                 </span>
               ) : status === STATUS_CLOSING ? (
                 <span className="inline-flex items-center gap-1 text-xs text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">
                   <Clock className="w-3 h-3" />
-                  {daysLeft > 0 ? `${daysLeft} 天后结算` : "即将结算"}
+                  {daysLeft > 0 ? `${daysLeft}d left` : "Closing soon"}
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 text-xs text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full">
-                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />进行中
+                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />Active
                 </span>
               )}
               {createdAt > 0 && (
                 <span className="text-xs text-zinc-600">
-                  {new Date(createdAt * 1000).toLocaleDateString("zh-CN")}
+                  {new Date(createdAt * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                 </span>
               )}
             </div>
@@ -103,7 +103,7 @@ export default function MarketCard({ market }: MarketCardProps) {
             </div>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-[10px] text-zinc-500 mb-0.5">信心指数</p>
+            <p className="text-[10px] text-zinc-500 mb-0.5">Confidence</p>
             <p className="text-sm font-bold text-zinc-300">
               {confidencePercent.toFixed(1)}%
             </p>
@@ -117,7 +117,7 @@ export default function MarketCard({ market }: MarketCardProps) {
           </div>
           <div className="text-right">
             <span className="inline-block px-3 py-1 rounded-lg bg-zinc-800 text-xs font-medium text-zinc-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
-              去交易 →
+              Trade →
             </span>
           </div>
         </div>

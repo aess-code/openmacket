@@ -15,7 +15,7 @@ import { FACTORY_ADDRESS, FACTORY_ABI } from "@/constants";
 import { toast } from "sonner";
 import { Loader2, X, AlertTriangle } from "lucide-react";
 
-// ── 从 receipt.logs 中解析 MarketCreated 事件，返回新市场地址 ────────────────
+// Parse the MarketCreated event from receipt logs to get the new market address
 function parseNewMarketAddress(
   logs: readonly { topics: readonly `0x${string}`[]; data: `0x${string}`; address: Address }[]
 ): Address | null {
@@ -27,10 +27,9 @@ function parseNewMarketAddress(
         topics: log.topics as any,
         data: log.data,
       });
-      // decoded.args.market 是新市场的合约地址（indexed 参数在 topics 中）
       return (decoded.args as { market: Address }).market;
     } catch {
-      // 跳过非目标事件的 log
+      // skip non-target logs
     }
   }
   return null;
@@ -39,7 +38,7 @@ function parseNewMarketAddress(
 interface CreateModalProps {
   isOpen: boolean;
   onClose: () => void;
-  /** 交易成功后的回调，用于触发父组件的静默数据刷新 */
+  /** Callback after successful transaction — triggers silent data refresh in parent */
   onSuccess?: () => void;
 }
 
@@ -70,41 +69,36 @@ export default function CreateModal({
     data: receipt,
   } = useWaitForTransactionReceipt({ hash: txHash });
 
-  // ── 交易成功：解析新市场地址 → 跳转 ─────────────────────────────────────────
+  // On confirmed: parse new market address → redirect
   useEffect(() => {
     if (!isConfirmed || !receipt) return;
 
     const newMarketAddress = parseNewMarketAddress(receipt.logs);
 
-    // 重置表单状态
     setQuestion("");
     setDescription("");
 
-    // 通知父组件做静默数据刷新（invalidateQueries），不阻塞跳转
     onSuccess?.();
 
     if (newMarketAddress) {
-      // 关闭弹窗后立即跳转到新市场详情页，携带 ?new=true 触发欢迎横幅
       onClose();
       router.push(`/market/${newMarketAddress}?new=true`);
     } else {
-      // 极少数情况下解析失败（如 RPC 返回不完整），降级为 toast 提示
-      toast.success("市场创建成功！");
+      toast.success("View created successfully!");
       onClose();
     }
   }, [isConfirmed]); // eslint-disable-line react-hooks/exhaustive-deps
-  // ^ receipt/onSuccess/onClose/router 均为稳定引用，不放入依赖以防闭包陷阱
 
-  // ── 写合约报错时显示 toast ─────────────────────────────────────────────────
+  // Show toast on write error
   useEffect(() => {
     if (!writeError) return;
     const msg = writeError.message ?? "";
     if (msg.includes("User rejected") || msg.includes("user rejected")) {
-      toast.error("已取消：你在钱包中拒绝了签名");
+      toast.error("Cancelled: you rejected the signature in your wallet.");
     } else if (msg.includes("insufficient funds")) {
-      toast.error("余额不足：请确保有足够的 ETH 支付 Gas");
+      toast.error("Insufficient funds: make sure you have enough ETH for gas.");
     } else {
-      toast.error(`交易失败：${msg.slice(0, 80)}`);
+      toast.error(`Transaction failed: ${msg.slice(0, 80)}`);
     }
   }, [writeError]);
 
@@ -123,11 +117,11 @@ export default function CreateModal({
     e.preventDefault();
     if (!isValid || !isConnected || isProcessing) return;
     if (isContractMissing) {
-      toast.error("合约地址未配置，请联系管理员");
+      toast.error("Contract address not configured. Please contact the admin.");
       return;
     }
     if (isWrongChain) {
-      toast.error("请先切换到 Sepolia 测试网");
+      toast.error("Please switch to Sepolia testnet first.");
       return;
     }
     resetWrite();
@@ -147,9 +141,9 @@ export default function CreateModal({
       />
 
       <div className="relative w-full sm:max-w-md bg-zinc-900 border border-zinc-800 rounded-t-3xl sm:rounded-2xl p-5 pb-8 sm:pb-5 shadow-2xl">
-        {/* 标题栏 */}
+        {/* Header */}
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-bold text-white">创建新市场</h2>
+          <h2 className="text-base font-bold text-white">New Viewstake</h2>
           <button
             onClick={onClose}
             disabled={isProcessing}
@@ -159,16 +153,16 @@ export default function CreateModal({
           </button>
         </div>
 
-        {/* ── 错误链提示横幅 ── */}
+        {/* Wrong chain banner */}
         {isWrongChain && (
           <div className="mb-4 flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3.5 py-3">
             <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-xs text-amber-300 font-medium">
-                当前不在 Sepolia 测试网
+                Wrong network
               </p>
               <p className="text-xs text-amber-400/70 mt-0.5">
-                合约部署在 Sepolia，需要切换后才能创建市场
+                Contracts are on Sepolia. Switch to create a view.
               </p>
             </div>
             <button
@@ -179,33 +173,34 @@ export default function CreateModal({
               {isSwitchingChain ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
-                "切换"
+                "Switch"
               )}
             </button>
           </div>
         )}
 
-        {/* ── 合约未配置提示 ── */}
+        {/* Contract not configured banner */}
         {isContractMissing && (
           <div className="mb-4 flex items-center gap-3 bg-red-500/10 border border-red-500/30 rounded-xl px-3.5 py-3">
             <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
             <p className="text-xs text-red-300">
-              合约地址未配置，请在 Vercel 环境变量中设置{" "}
-              <code className="font-mono">NEXT_PUBLIC_FACTORY_ADDRESS</code>
+              Contract address not configured. Set{" "}
+              <code className="font-mono">NEXT_PUBLIC_FACTORY_ADDRESS</code>{" "}
+              in Vercel environment variables.
             </p>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* 问题输入 */}
+          {/* Your View input */}
           <div>
             <label className="block text-xs font-medium text-zinc-400 mb-1.5">
-              观点问题 *
+              Your View *
             </label>
             <textarea
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="例如：以太坊会在 2025 年突破 $5000 吗？"
+              placeholder="e.g. Will Ethereum break $5,000 in 2025?"
               rows={3}
               maxLength={100}
               disabled={isProcessing}
@@ -221,22 +216,22 @@ export default function CreateModal({
                     : "text-transparent"
                 }
               >
-                {isValid ? "问题有效 ✓" : questionLength > 0 ? "至少 6 个字符" : "."}
+                {isValid ? "Valid ✓" : questionLength > 0 ? "At least 6 characters" : "."}
               </span>
               <span className={questionLength > 90 ? "text-amber-400" : "text-zinc-600"}>{questionLength}/100</span>
             </div>
           </div>
 
-          {/* 背景说明 */}
+          {/* Description */}
           <div>
             <label className="block text-xs font-medium text-zinc-400 mb-1.5">
-              背景说明{" "}
-              <span className="text-zinc-600 font-normal">(可选)</span>
+              Description{" "}
+              <span className="text-zinc-600 font-normal">(optional)</span>
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="补充背景信息，帮助参与者理解问题..."
+              placeholder="Add context to help participants understand your view..."
               rows={3}
               maxLength={500}
               disabled={isProcessing}
@@ -247,17 +242,17 @@ export default function CreateModal({
             </div>
           </div>
 
-          {/* 0.5% 手续费激励提示 */}
+          {/* Creator fee incentive */}
           <div className="flex items-start gap-2.5 bg-indigo-500/8 border border-indigo-500/20 rounded-xl px-3.5 py-3">
             <span className="text-indigo-400 text-base leading-none mt-0.5">💰</span>
             <p className="text-xs text-indigo-300/80 leading-relaxed">
-              市场创建后，每笔买卖将向参与者收取{" "}
-              <span className="text-indigo-300 font-semibold">0.5% 手续费</span>
-              ，直接打入你的钱包。
+              Once live, every trade on your view earns you a{" "}
+              <span className="text-indigo-300 font-semibold">0.5% creator fee</span>
+              {" "}sent directly to your wallet.
             </p>
           </div>
 
-          {/* 提交按钮 */}
+          {/* Submit button */}
           <button
             type="submit"
             disabled={
@@ -273,17 +268,17 @@ export default function CreateModal({
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
                 {isSwitchingChain
-                  ? "切换网络中..."
+                  ? "Switching network..."
                   : isPending
-                  ? "请在钱包中确认..."
-                  : "链上打包中..."}
+                  ? "Confirm in wallet..."
+                  : "Confirming on-chain..."}
               </>
             ) : !isConnected ? (
-              "请先连接钱包"
+              "Connect wallet first"
             ) : isWrongChain ? (
-              "请切换到 Sepolia 网络"
+              "Switch to Sepolia"
             ) : (
-              "创建市场"
+              "Create View"
             )}
           </button>
         </form>

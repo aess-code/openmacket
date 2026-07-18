@@ -70,18 +70,18 @@ function PositionItem({
     e.stopPropagation();
     try {
       await writeContractAsync({ address: marketAddress, abi: MARKET_ABI, functionName: "claim" });
-      toast.info("领取交易已提交，请在钱包确认...");
+      toast.info("Claim submitted. Please confirm in your wallet...");
     } catch (err: unknown) {
       const error = err as { shortMessage?: string; message?: string };
-      toast.error(error.shortMessage || error.message || "领取失败");
+      toast.error(error.shortMessage || error.message || "Claim failed");
     }
   };
 
   if (totalValue === BigInt(0) && status !== 2) return null;
 
   const statusLabel = status === 2
-    ? (hasClaimed ? "已领取" : hasPendingClaim ? "待领取" : "已结算")
-    : status === 1 ? "等待期" : "进行中";
+    ? (hasClaimed ? "Claimed" : hasPendingClaim ? "Claimable" : "Settled")
+    : status === 1 ? "Closing" : "Active";
 
   const statusColor = status === 2
     ? (hasClaimed ? "text-zinc-500 bg-zinc-800" : hasPendingClaim ? "text-amber-400 bg-amber-400/10" : "text-zinc-500 bg-zinc-800")
@@ -94,7 +94,7 @@ function PositionItem({
           <span className="absolute top-3 right-3 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
         )}
         <div className="flex items-start justify-between gap-2 mb-3">
-          <p className="text-sm font-medium text-zinc-200 leading-snug line-clamp-2 flex-1">{question || "加载中..."}</p>
+          <p className="text-sm font-medium text-zinc-200 leading-snug line-clamp-2 flex-1">{question || "Loading..."}</p>
           <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${statusColor}`}>{statusLabel}</span>
         </div>
         <div className="flex items-center justify-between">
@@ -127,12 +127,12 @@ function PositionItem({
           )}
           {status === 2 && hasClaimed && (
             <div className="flex items-center gap-1 text-xs text-zinc-600">
-              <CheckCircle2 className="w-3 h-3 text-emerald-600" />已领取
+              <CheckCircle2 className="w-3 h-3 text-emerald-600" />Claimed
             </div>
           )}
           {status === 2 && !hasClaimed && !hasPendingClaim && (
             <div className="text-xs text-zinc-600">
-              {isTie ? "平局退款" : yesWins ? "NO 方未获胜" : "YES 方未获胜"}
+              {isTie ? "Tie refund" : yesWins ? "NO side lost" : "YES side lost"}
             </div>
           )}
         </div>
@@ -160,7 +160,7 @@ function CreatedItem({ marketAddress }: { marketAddress: Address }) {
   const tvlFormatted  = tvl ? (Number(tvl) / 1_000_000).toFixed(2) : "0.00";
   const confidencePct = confidence !== undefined ? Number(confidence) / 100 : 50;
 
-  const statusLabel = status === 2 ? "已结算" : status === 1 ? "等待期" : "进行中";
+  const statusLabel = status === 2 ? "Settled" : status === 1 ? "Closing" : "Active";
   const statusColor = status === 2
     ? "text-zinc-500 bg-zinc-800"
     : status === 1 ? "text-amber-400 bg-amber-400/10"
@@ -170,12 +170,12 @@ function CreatedItem({ marketAddress }: { marketAddress: Address }) {
     <Link href={`/market/${marketAddress}`}>
       <div className="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl p-4 transition-all">
         <div className="flex items-start justify-between gap-2 mb-3">
-          <p className="text-sm font-medium text-zinc-200 leading-snug line-clamp-2 flex-1">{question || "加载中..."}</p>
+          <p className="text-sm font-medium text-zinc-200 leading-snug line-clamp-2 flex-1">{question || "Loading..."}</p>
           <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${statusColor}`}>{statusLabel}</span>
         </div>
         <div className="flex items-center justify-between text-xs text-zinc-600">
           <span>TVL {tvlFormatted} USDT</span>
-          <span>信心指数 {confidencePct.toFixed(1)}%</span>
+          <span>Confidence {confidencePct.toFixed(1)}%</span>
         </div>
       </div>
     </Link>
@@ -265,13 +265,13 @@ export default function ProfilePage() {
           <div className="w-16 h-16 bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl">🔒</span>
           </div>
-          <h2 className="text-xl font-bold text-zinc-200 mb-2">未连接钱包</h2>
-          <p className="text-zinc-400 mb-6">请先连接钱包查看您的战绩与收益</p>
+          <h2 className="text-xl font-bold text-zinc-200 mb-2">Wallet not connected</h2>
+          <p className="text-zinc-400 mb-6">Connect your wallet to view your positions and earnings.</p>
           <Link
             href="/"
             className="inline-block bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 px-6 rounded-xl transition-colors"
           >
-            返回首页
+            Back to Home
           </Link>
         </div>
       </div>
@@ -291,7 +291,7 @@ export default function ProfilePage() {
       <div className="sticky top-0 z-50 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800 px-4 py-4">
         <Link href="/" className="flex items-center gap-2 text-zinc-400 hover:text-zinc-200 transition-colors w-fit">
           <ArrowLeft className="w-5 h-5" />
-          <span className="font-medium">返回</span>
+          <span className="font-medium">Back</span>
         </Link>
       </div>
 
@@ -308,7 +308,7 @@ export default function ProfilePage() {
                 <button
                   onClick={handleCopyAddress}
                   className="text-zinc-500 hover:text-zinc-300 transition-colors"
-                  title="复制地址"
+                  title="Copy address"
                 >
                   {copied ? (
                     <Check className="w-4 h-4 text-emerald-400" />
@@ -323,16 +323,16 @@ export default function ProfilePage() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-zinc-500 hover:text-zinc-300 transition-colors"
-                  title={chain?.blockExplorers?.default ? `在 ${chain.blockExplorers.default.name} 查看` : "在 Etherscan 查看"}
+                  title={chain?.blockExplorers?.default ? `View on ${chain.blockExplorers.default.name}` : "View on Etherscan"}
                 >
                   <ExternalLink className="w-4 h-4" />
                 </a>
               </div>
-              <p className="text-sm text-indigo-400/80">{chain?.name ?? "未知网络"}</p>
+              <p className="text-sm text-indigo-400/80">{chain?.name ?? "Unknown Network"}</p>
             </div>
           </div>
           <div>
-            <p className="text-sm text-zinc-400 mb-1">可用余额</p>
+            <p className="text-sm text-zinc-400 mb-1">Available Balance</p>
             <div className="flex items-center justify-between">
               <div className="flex items-baseline gap-4">
                 <div className="flex items-baseline gap-1.5">
@@ -354,19 +354,19 @@ export default function ProfilePage() {
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
             <div className="flex items-center gap-2 text-zinc-400 mb-2">
               <Activity className="w-4 h-4" />
-              <span className="text-sm">参与市场</span>
+              <span className="text-sm">Views Joined</span>
             </div>
             <div className="text-2xl font-bold text-zinc-200">
-              {positionMarkets.length} <span className="text-sm text-zinc-500 font-normal">个</span>
+              {positionMarkets.length}
             </div>
           </div>
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
             <div className="flex items-center gap-2 text-zinc-400 mb-2">
               <PlusCircle className="w-4 h-4" />
-              <span className="text-sm">创建市场</span>
+              <span className="text-sm">Views Created</span>
             </div>
             <div className="text-2xl font-bold text-zinc-200">
-              {createdMarkets.length} <span className="text-sm text-zinc-500 font-normal">个</span>
+              {createdMarkets.length}
             </div>
           </div>
         </div>
@@ -375,7 +375,7 @@ export default function ProfilePage() {
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
           <div className="flex items-center gap-2 text-zinc-400 mb-2">
             <TrendingUp className="w-4 h-4" />
-            <span className="text-sm">创建者累计收益</span>
+              <span className="text-sm">Creator Earnings</span>
           </div>
           <div className="flex items-center justify-between">
             <div className="text-2xl font-bold text-emerald-400">
@@ -385,7 +385,7 @@ export default function ProfilePage() {
               <span className="text-lg">💰</span>
             </div>
           </div>
-          <p className="text-xs text-zinc-600 mt-2">基于你创建的市场累计成交量 × 0.5% 手续费</p>
+          <p className="text-xs text-zinc-600 mt-2">Based on total volume across your views × 0.5% creator fee</p>
         </div>
 
         {/* 标签页 */}
@@ -395,7 +395,7 @@ export default function ProfilePage() {
               onClick={() => setActiveTab("created")}
               className={"flex-1 pb-4 text-center font-medium transition-colors relative " + (activeTab === "created" ? "text-indigo-400" : "text-zinc-500 hover:text-zinc-300")}
             >
-              我创建的
+              My Views
               {activeTab === "created" && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500 rounded-t-full" />
               )}
@@ -405,7 +405,7 @@ export default function ProfilePage() {
               className={"flex-1 pb-4 text-center font-medium transition-colors relative " + (activeTab === "positions" ? "text-indigo-400" : "text-zinc-500 hover:text-zinc-300")}
             >
               <span className="relative inline-block">
-                我的持仓
+                My Positions
                 {pendingClaimCount > 0 && (
                   <span className="absolute -top-1 -right-3 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
                 )}
@@ -421,12 +421,12 @@ export default function ProfilePage() {
             createdMarkets.length === 0 ? (
               <div className="bg-zinc-900/50 border border-zinc-800/50 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center">
                 <SearchX className="w-10 h-10 text-zinc-600 mb-4" />
-                <p className="text-zinc-400 mb-4">您还没有创建过市场</p>
+                <p className="text-zinc-400 mb-4">You haven&apos;t created any views yet.</p>
                 <Link
                   href="/"
                   className="bg-zinc-800 hover:bg-zinc-700 text-indigo-400 px-6 py-2 rounded-xl text-sm font-medium transition-colors"
                 >
-                  去创建一个
+                  Create your first view
                 </Link>
               </div>
             ) : (
@@ -443,7 +443,7 @@ export default function ProfilePage() {
             positionMarkets.length === 0 ? (
               <div className="bg-zinc-900/50 border border-zinc-800/50 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center text-center">
                 <SearchX className="w-10 h-10 text-zinc-600 mb-4" />
-                <p className="text-zinc-400">您当前没有任何持仓</p>
+                <p className="text-zinc-400">You have no open positions yet.</p>
               </div>
             ) : (
               <div className="space-y-3">

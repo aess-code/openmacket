@@ -10,7 +10,7 @@ interface WalletModalProps {
   onClose: () => void;
 }
 
-// 钱包图标：优先使用 EIP-6963 提供的图标，否则用内置 SVG
+// Wallet icons: prefer EIP-6963 provided icons, fall back to built-in emoji
 const WALLET_ICONS: Record<string, string> = {
   metaMask: "🦊",
   okxwallet: "⭕",
@@ -23,14 +23,14 @@ const WALLET_ICONS: Record<string, string> = {
 };
 
 const WALLET_DESCRIPTIONS: Record<string, string> = {
-  metaMask: "最流行的以太坊钱包",
-  okxwallet: "OKX 交易所钱包",
-  bitkeep: "Bitget 旗下 Web3 钱包",
-  tokenpocket: "多链去中心化钱包",
-  imtoken: "老牌以太坊钱包",
-  coinbaseWalletSDK: "Coinbase 官方钱包",
-  walletConnect: "扫码连接任意钱包",
-  injected: "浏览器注入钱包",
+  metaMask: "The most popular Ethereum wallet",
+  okxwallet: "OKX Exchange wallet",
+  bitkeep: "Bitget Web3 wallet",
+  tokenpocket: "Multi-chain decentralized wallet",
+  imtoken: "Battle-tested Ethereum wallet",
+  coinbaseWalletSDK: "Official Coinbase wallet",
+  walletConnect: "Scan QR to connect any wallet",
+  injected: "Browser-injected wallet",
 };
 
 function WalletOption({
@@ -62,12 +62,12 @@ function WalletOption({
     return () => { mounted = false; };
   }, [connector]);
 
-  // 跳过：未检测到 provider 且不是 WalletConnect 的连接器
+  // Skip connectors with no provider detected (except WalletConnect)
   const isWalletConnect = connector.id === "walletConnect";
   if (!checking && !ready && !isWalletConnect) return null;
 
   const icon = WALLET_ICONS[connector.id] || "💼";
-  const desc = WALLET_DESCRIPTIONS[connector.id] || "Web3 钱包";
+  const desc = WALLET_DESCRIPTIONS[connector.id] || "Web3 wallet";
 
   return (
     <button
@@ -79,9 +79,8 @@ function WalletOption({
         checking ? "opacity-50" : "opacity-100",
       ].join(" ")}
     >
-      {/* 图标区域 */}
+      {/* Icon */}
       <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-xl flex-shrink-0 overflow-hidden">
-        {/* 优先使用 EIP-6963 提供的图标 */}
         {(connector as any).icon ? (
           <img
             src={(connector as any).icon}
@@ -93,7 +92,7 @@ function WalletOption({
         )}
       </div>
 
-      {/* 文字区域 */}
+      {/* Text */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-slate-100 truncate">
@@ -106,7 +105,7 @@ function WalletOption({
         <p className="text-xs text-slate-500 truncate mt-0.5">{desc}</p>
       </div>
 
-      {/* 状态指示 */}
+      {/* Status indicator */}
       {checking ? (
         <Loader2 className="w-4 h-4 text-slate-600 animate-spin flex-shrink-0" />
       ) : ready ? (
@@ -121,13 +120,13 @@ function WalletOption({
 export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
   const { connect, connectors, isPending } = useConnect();
 
-  // 去重：EIP-6963 可能会和手动配置的连接器重复
-  // 优先保留 EIP-6963 发现的（带 icon 和 rdns），去掉手动配置的同名连接器
+  // Deduplicate: EIP-6963 may overlap with manually configured connectors.
+  // Prefer EIP-6963 discovered connectors (with rdns), drop duplicates.
   const deduped = React.useMemo(() => {
     const seen = new Set<string>();
     const result: Connector[] = [];
 
-    // 先处理 EIP-6963 发现的（有 rdns 属性）
+    // Process EIP-6963 discovered connectors first (have rdns)
     for (const c of connectors) {
       if ((c as any).rdns) {
         const key = (c as any).rdns;
@@ -138,19 +137,17 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
       }
     }
 
-    // 再处理手动配置的（没有 rdns）
+    // Then process manually configured connectors (no rdns)
     for (const c of connectors) {
       if (!(c as any).rdns) {
-        // 用 id 去重，避免重复展示同一个钱包
         const key = c.id;
-        // 跳过已经通过 EIP-6963 发现的同类钱包
         const alreadyCovered =
           (key === "okxwallet" && seen.has("com.okex.wallet")) ||
           (key === "bitkeep" && seen.has("com.bitget.web3")) ||
           (key === "tokenpocket" && seen.has("pro.tokenpocket")) ||
           (key === "imtoken" && seen.has("im.token.app")) ||
           (key === "metaMask" && seen.has("io.metamask")) ||
-          (key === "injected" && result.length > 1); // 有其他钱包时隐藏通用 injected
+          (key === "injected" && result.length > 1);
 
         if (!alreadyCovered && !seen.has(key)) {
           seen.add(key);
@@ -166,24 +163,24 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      {/* 背景遮罩 */}
+      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      {/* 弹窗主体 */}
+      {/* Modal */}
       <div className="relative w-full sm:max-w-sm bg-slate-950 border border-slate-800 rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden">
-        {/* 顶部把手（移动端） */}
+        {/* Drag handle (mobile) */}
         <div className="flex justify-center pt-3 pb-1 sm:hidden">
           <div className="w-10 h-1 rounded-full bg-slate-700" />
         </div>
 
-        {/* 标题栏 */}
+        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4">
           <div>
-            <h2 className="text-base font-semibold text-slate-100">连接钱包</h2>
-            <p className="text-xs text-slate-500 mt-0.5">选择你的 Web3 钱包</p>
+            <h2 className="text-base font-semibold text-slate-100">Connect Wallet</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Choose your Web3 wallet</p>
           </div>
           <button
             onClick={onClose}
@@ -193,12 +190,12 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
           </button>
         </div>
 
-        {/* 钱包列表 */}
+        {/* Wallet list */}
         <div className="px-3 pb-6 space-y-0.5 max-h-[60vh] overflow-y-auto">
           {isPending ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
-              <span className="ml-2 text-sm text-slate-400">连接中...</span>
+              <span className="ml-2 text-sm text-slate-400">Connecting...</span>
             </div>
           ) : (
             deduped.map((connector) => (
@@ -214,10 +211,10 @@ export default function WalletModal({ isOpen, onClose }: WalletModalProps) {
           )}
         </div>
 
-        {/* 底部说明 */}
+        {/* Footer */}
         <div className="px-5 py-3 border-t border-slate-800/60 bg-slate-900/40">
           <p className="text-xs text-slate-600 text-center">
-            连接即表示你已阅读并同意平台使用条款。你的资产由你的钱包自主保管。
+            By connecting, you agree to the platform terms of use. Your assets are self-custodied in your wallet.
           </p>
         </div>
       </div>

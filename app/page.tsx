@@ -18,7 +18,7 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"newest" | "hot" | "closing">("newest");
 
-  // TanStack Query 客户端，用于交易成功后的静默后台刷新
+  // TanStack Query client for silent background refresh after transactions
   const queryClient = useQueryClient();
 
   const { data: marketCount, isLoading: isCountLoading } = useReadContract({
@@ -41,7 +41,7 @@ export default function HomePage() {
 
   const addresses = (marketAddresses as Address[] | undefined) ?? [];
 
-  // 一次性批量读取所有市场的所有必要数据，避免 N+1 查询
+  // Batch-read all market data in one call to avoid N+1 queries
   const { data: marketsRawData, isLoading: isDataLoading } = useReadContracts({
     contracts: addresses.flatMap((addr) => [
       { address: addr, abi: MARKET_ABI, functionName: "question" as const },
@@ -61,7 +61,7 @@ export default function HomePage() {
 
   const isLoading = isCountLoading || isMarketsLoading || (addresses.length > 0 && isDataLoading);
 
-  // 组装结构化数据
+  // Build structured market data
   const allMarkets = addresses.map((addr, i) => {
     const baseIdx = i * 8;
     const question = (marketsRawData?.[baseIdx]?.result as string) || "";
@@ -81,8 +81,8 @@ export default function HomePage() {
       status,
       createdAt: Number(createdAt),
       daysLeft: timeUntilSettle > 0n ? Math.ceil(Number(timeUntilSettle) / 86400) : 0,
-      
-      // 用于排序的原始数据
+
+      // Raw data for sorting
       _timeUntilSettle: Number(timeUntilSettle),
       _totalVolume: Number(totalVolume),
       _tvl: Number(tvl),
@@ -90,14 +90,14 @@ export default function HomePage() {
     };
   });
 
-  // 按问题文本进行搜索过滤
+  // Filter by search query
   const searchFilteredMarkets = searchQuery
     ? allMarkets.filter((m) => m.question.toLowerCase().includes(searchQuery.toLowerCase()))
     : allMarkets;
 
-  // 根据 Tab 计算最终展示的市场列表
+  // Sort by active tab
   let displayMarkets = [...searchFilteredMarkets];
-  
+
   if (activeTab === "newest") {
     displayMarkets.reverse();
   } else if (activeTab === "hot") {
@@ -112,7 +112,7 @@ export default function HomePage() {
       .sort((a, b) => a._timeUntilSettle - b._timeUntilSettle);
   }
 
-  // 创建成功回调：只做静默刷新，跳转逻辑由 CreateModal 内部处理
+  // On create success: silent refetch only; redirect is handled inside CreateModal
   const handleCreateSuccess = useCallback(() => {
     queryClient.invalidateQueries();
   }, [queryClient]);
@@ -121,20 +121,20 @@ export default function HomePage() {
     <div className="min-h-screen bg-zinc-950 text-zinc-50 pb-20">
       <Header />
 
-      {/* 移动端钱包提示横幅 */}
+      {/* Mobile wallet tip banner */}
       <div className="md:hidden bg-indigo-500/10 border-b border-indigo-500/20 px-4 py-3 flex items-start gap-3">
         <span className="text-xl">💡</span>
         <p className="text-sm text-indigo-200">
-          建议在{" "}
-          <span className="font-semibold text-indigo-400">OKX 钱包</span> 或
-          MetaMask 内置浏览器打开本站，体验最佳
+          For the best experience, open Pulse inside{" "}
+          <span className="font-semibold text-indigo-400">OKX Wallet</span> or
+          MetaMask&apos;s built-in browser.
         </p>
       </div>
 
       <main className="max-w-3xl mx-auto px-4 pt-6">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2 tracking-tight">Macket</h1>
-          <p className="text-zinc-400">用钱表达你的观点</p>
+          <h1 className="text-3xl font-bold mb-2 tracking-tight">Pulse</h1>
+          <p className="text-zinc-400">Back your views with real conviction.</p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 mb-10">
@@ -142,7 +142,7 @@ export default function HomePage() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
             <input
               type="text"
-              placeholder="搜索市场..."
+              placeholder="Search views..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-3.5 pl-12 pr-4 text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
@@ -153,12 +153,12 @@ export default function HomePage() {
             className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 transition-colors active:scale-[0.98] shadow-lg shadow-indigo-500/20"
           >
             <Plus className="w-5 h-5" />
-            <span>创建市场</span>
+            <span>Viewstake</span>
           </button>
         </div>
 
         <div className="space-y-6">
-          {/* 排序 Tab */}
+          {/* Sort tabs */}
           <div className="flex items-center gap-6 border-b border-zinc-800/80 pb-3">
             <button
               onClick={() => setActiveTab("newest")}
@@ -169,7 +169,7 @@ export default function HomePage() {
               }`}
             >
               <Clock className="w-4 h-4" />
-              最新市场
+              Latest
             </button>
             <button
               onClick={() => setActiveTab("hot")}
@@ -180,7 +180,7 @@ export default function HomePage() {
               }`}
             >
               <Flame className="w-4 h-4" />
-              最热市场
+              Trending
             </button>
             <button
               onClick={() => setActiveTab("closing")}
@@ -191,28 +191,28 @@ export default function HomePage() {
               }`}
             >
               <Timer className="w-4 h-4" />
-              即将结算
+              Closing Soon
             </button>
           </div>
 
-          {/* 市场列表 */}
+          {/* Views list */}
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
               <Loader2 className="w-8 h-8 animate-spin mb-4" />
-              <p>加载市场数据中...</p>
+              <p>Loading views...</p>
             </div>
           ) : displayMarkets.length === 0 ? (
             <div className="text-center py-20 text-zinc-500 bg-zinc-900/30 rounded-3xl border border-zinc-800/50 border-dashed">
               {activeTab === "closing" ? (
-                <p className="text-lg">暂无即将结算的市场</p>
+                <p className="text-lg">No views closing soon</p>
               ) : (
                 <>
-                  <p className="mb-4 text-lg">还没有任何市场</p>
+                  <p className="mb-4 text-lg">No views yet</p>
                   <button
                     onClick={() => setShowCreateModal(true)}
                     className="text-indigo-400 hover:text-indigo-300 font-medium"
                   >
-                    成为第一个创建者 →
+                    Be the first to create one →
                   </button>
                 </>
               )}

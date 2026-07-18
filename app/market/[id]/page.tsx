@@ -95,12 +95,12 @@ function ConfirmCloseModal({
             <AlertTriangle className="w-5 h-5 text-amber-400" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white mb-1">申请关闭市场</h3>
+            <h3 className="text-sm font-bold text-white mb-1">Request to Close View</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              此操作<span className="text-amber-400 font-semibold">不可撤销</span>。申请后将进入
-              <span className="text-white font-semibold"> 21 天</span>等待期，期间任何人仍可买入卖出。
-              21 天结束后按信心指数自动结算，
-              <span className="text-amber-400 font-semibold">你将不再获得创建者手续费</span>。
+              This action is <span className="text-amber-400 font-semibold">irreversible</span>. After requesting, a
+              <span className="text-white font-semibold"> 21-day</span> waiting period begins during which trading continues.
+              Settlement happens automatically after 21 days based on the confidence index.
+              <span className="text-amber-400 font-semibold">You will no longer earn creator fees.</span>
             </p>
           </div>
         </div>
@@ -110,7 +110,7 @@ function ConfirmCloseModal({
             disabled={isLoading}
             className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors"
           >
-            取消
+            Cancel
           </button>
           <button
             onClick={onConfirm}
@@ -118,8 +118,8 @@ function ConfirmCloseModal({
             className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-amber-500 text-black hover:bg-amber-400 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60"
           >
             {isLoading ? (
-              <><Loader2 className="w-3.5 h-3.5 animate-spin" />提交中...</>
-            ) : "确认申请关闭"}
+              <><Loader2 className="w-3.5 h-3.5 animate-spin" />Submitting...</>
+            ) : "Confirm Close"}
           </button>
         </div>
       </div>
@@ -149,8 +149,8 @@ function ClaimRewardModal({
 }) {
   if (isSuccess) {
     const shareText = isTie
-      ? `我在 Macket 参与了「${question || "信心指数市场"}」，平局退款到账！`
-      : `我在 Macket 参与了「${question || "信心指数市场"}」，押对了！赚了 +${amount} USDT 🎉`;
+      ? `I staked on "${question || "a Pulse View"}" and got a full refund — it was a tie!`
+      : `I staked on "${question || "a Pulse View"}" on Pulse and called it right! +${amount} USDT 🎉`;
     const shareUrl = typeof window !== "undefined" ? window.location.href : "";
     const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
 
@@ -167,9 +167,9 @@ function ClaimRewardModal({
             </div>
           </div>
           <div className="text-center mb-5">
-            <h2 className="text-lg font-bold text-white mb-1">奖励已到账！</h2>
+            <h2 className="text-lg font-bold text-white mb-1">Reward Received!</h2>
             <p className="text-2xl font-bold text-emerald-400 mb-1">+{amount} USDT</p>
-            <p className="text-xs text-zinc-500">已转入你的钱包</p>
+            <p className="text-xs text-zinc-500">Transferred to your wallet</p>
           </div>
           <div className="space-y-2">
             <a
@@ -179,13 +179,13 @@ function ClaimRewardModal({
               className="w-full flex items-center justify-center gap-2 bg-[#1d9bf0] hover:bg-[#1a8cd8] text-white py-3 rounded-xl text-sm font-bold transition-colors"
             >
               <ExternalLink className="w-4 h-4" />
-              分享到 X（Twitter）
+              Share on X (Twitter)
             </a>
             <button
               onClick={onDismiss}
               className="w-full py-3 rounded-xl text-sm font-medium text-zinc-400 hover:text-zinc-300 transition-colors"
             >
-              稍后再说
+              Maybe later
             </button>
           </div>
         </div>
@@ -211,18 +211,18 @@ function ClaimRewardModal({
         </div>
         <div className="text-center mb-2">
           <h2 className="text-lg font-bold text-white mb-1">
-            {isTie ? "平局，退款到账" : yesWins ? "YES 方获胜！" : "NO 方获胜！"}
+            {isTie ? "It's a Tie — Refund Ready" : yesWins ? "YES Wins!" : "NO Wins!"}
           </h2>
           <p className="text-xs text-zinc-500 leading-relaxed">
             {isTie
-              ? "信心指数恰好 50%，你投入的资金将全额退回钱包"
-              : "市场已结算，你押对了方向，奖励已准备好"}
+              ? "Confidence landed exactly at 50%. Your full stake will be refunded."
+              : "The view has settled. You called it right — your reward is ready."}
           </p>
         </div>
         <div className="bg-zinc-950 border border-zinc-800 rounded-2xl px-5 py-4 my-4 text-center">
-          <p className="text-xs text-zinc-500 mb-1">
-            {isTie ? "退款金额" : "可领取奖励"}
-          </p>
+            <p className="text-xs text-zinc-500 mb-1">
+              {isTie ? "Refund Amount" : "Claimable Reward"}
+            </p>
           <p className="text-3xl font-bold text-emerald-400">+{amount}</p>
           <p className="text-sm text-zinc-500 mt-0.5">USDT</p>
         </div>
@@ -232,9 +232,9 @@ function ClaimRewardModal({
           className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-4 rounded-2xl text-base font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-60 active:scale-[0.98]"
         >
           {isLoading ? (
-            <><Loader2 className="w-5 h-5 animate-spin" />请在钱包中确认...</>
+            <><Loader2 className="w-5 h-5 animate-spin" />Confirm in wallet...</>
           ) : (
-            <><Sparkles className="w-5 h-5" />{isTie ? "确认退款" : "立即领取"}</>
+            <><Sparkles className="w-5 h-5" />{isTie ? "Confirm Refund" : "Claim Reward"}</>
           )}
         </button>
       </div>
@@ -404,14 +404,14 @@ export default function MarketDetailPage() {
     const wasClaiming  = isClaimingRef.current;
 
     if (wasApproving) {
-      toast.success("授权成功！现在可以买入了");
+      toast.success("Approved! You can now buy.");
       setIsApproving(false);
     } else if (wasClaiming) {
       setClaimJustSucceeded(true);
       setIsClaiming(false);
-      toast.success("奖励已到账！");
+      toast.success("Reward claimed!");
     } else {
-      toast.success("交易成功！");
+      toast.success("Transaction confirmed!");
     }
 
     setAmount("");
@@ -436,28 +436,28 @@ export default function MarketDetailPage() {
         address: USDT_ADDRESS, abi: USDT_ABI, functionName: "approve",
         args: [marketAddress, amountBigInt * 2n],
       });
-      toast.info("等待授权确认...");
+      toast.info("Waiting for approval confirmation...");
     } catch (err: unknown) {
       const e = err as { shortMessage?: string; message?: string };
-      toast.error(e.shortMessage || e.message || "授权失败");
+      toast.error(e.shortMessage || e.message || "Approval failed");
       setIsApproving(false);
     }
   };
 
   const handleTrade = async () => {
-    if (!amountBigInt || amountBigInt === BigInt(0)) { toast.error("请输入金额"); return; }
+    if (!amountBigInt || amountBigInt === BigInt(0)) { toast.error("Please enter an amount"); return; }
     const sideValue = side === "yes" ? YES : NO;
     try {
       if (tab === "buy") {
         await writeContractAsync({ address: marketAddress, abi: MARKET_ABI, functionName: "buy", args: [sideValue, amountBigInt] });
-        toast.info("买入交易已提交...");
+        toast.info("Buy order submitted...");
       } else {
         await writeContractAsync({ address: marketAddress, abi: MARKET_ABI, functionName: "sell", args: [sideValue, amountBigInt] });
-        toast.info("卖出交易已提交...");
+        toast.info("Sell order submitted...");
       }
     } catch (err: unknown) {
       const e = err as { shortMessage?: string; message?: string };
-      toast.error(e.shortMessage || e.message || "交易失败");
+      toast.error(e.shortMessage || e.message || "Transaction failed");
     }
   };
 
@@ -465,20 +465,20 @@ export default function MarketDetailPage() {
     setShowCloseConfirm(false);
     try {
       await writeContractAsync({ address: marketAddress, abi: MARKET_ABI, functionName: "initiateClose" });
-      toast.info("申请关闭已提交，21 天倒计时开始...");
+      toast.info("Close request submitted. 21-day countdown started...");
     } catch (err: unknown) {
       const e = err as { shortMessage?: string; message?: string };
-      toast.error(e.shortMessage || e.message || "操作失败");
+      toast.error(e.shortMessage || e.message || "Operation failed");
     }
   };
 
   const handleSettle = async () => {
     try {
       await writeContractAsync({ address: marketAddress, abi: MARKET_ABI, functionName: "settle" });
-      toast.info("结算交易已提交...");
+      toast.info("Settlement transaction submitted...");
     } catch (err: unknown) {
       const e = err as { shortMessage?: string; message?: string };
-      toast.error(e.shortMessage || e.message || "结算失败");
+      toast.error(e.shortMessage || e.message || "Settlement failed");
     }
   };
 
@@ -486,10 +486,10 @@ export default function MarketDetailPage() {
     setIsClaiming(true);
     try {
       await writeContractAsync({ address: marketAddress, abi: MARKET_ABI, functionName: "claim" });
-      toast.info("领取交易已提交，请在钱包确认...");
+      toast.info("Claim submitted. Please confirm in your wallet...");
     } catch (err: unknown) {
       const e = err as { shortMessage?: string; message?: string };
-      toast.error(e.shortMessage || e.message || "领取失败");
+      toast.error(e.shortMessage || e.message || "Claim failed");
       setIsClaiming(false);
     }
   };
@@ -497,11 +497,11 @@ export default function MarketDetailPage() {
   const handleShare = () => {
     const url = window.location.href;
     if (navigator.share) {
-      navigator.share({ title: question || "Macket Market", url }).catch(() => {
-        navigator.clipboard.writeText(url).then(() => toast.success("链接已复制"));
+      navigator.share({ title: question || "Pulse View", url }).catch(() => {
+        navigator.clipboard.writeText(url).then(() => toast.success("Link copied"));
       });
     } else {
-      navigator.clipboard.writeText(url).then(() => toast.success("链接已复制"));
+      navigator.clipboard.writeText(url).then(() => toast.success("Link copied"));
     }
   };
 
@@ -521,18 +521,18 @@ export default function MarketDetailPage() {
   const StatusBadge = () => {
     if (status === STATUS_SETTLED) return (
       <span className="inline-flex items-center gap-1 text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">
-        <Lock className="w-3 h-3" />已结算
+        <Lock className="w-3 h-3" />Settled
       </span>
     );
     if (status === STATUS_CLOSING) return (
       <span className="inline-flex items-center gap-1 text-xs text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">
         <Clock className="w-3 h-3" />
-        {daysLeft > 0 ? `${daysLeft} 天后结算` : "即将结算"}
+        {daysLeft > 0 ? `${daysLeft}d left` : "Closing soon"}
       </span>
     );
     return (
       <span className="inline-flex items-center gap-1 text-xs text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full">
-        <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />进行中
+        <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />Active
       </span>
     );
   };
@@ -543,10 +543,10 @@ export default function MarketDetailPage() {
       <div className="bg-zinc-800/60 border border-zinc-700 rounded-xl px-4 py-3 mb-4 flex items-center gap-3">
         <span className="text-lg">🤝</span>
         <div>
-          <p className="text-sm font-bold text-white">平局结算</p>
-          <p className="text-xs text-zinc-400">
-            信心指数恰好 50%，你投入的 USDT 将按原额退回钱包，点击下方按钮确认退款
-          </p>
+          <p className="text-sm font-bold text-white">Tie — Refund</p>
+            <p className="text-xs text-zinc-400">
+              Confidence landed at exactly 50%. Your USDT stake will be refunded in full.
+            </p>
         </div>
       </div>
     );
@@ -557,12 +557,12 @@ export default function MarketDetailPage() {
         <Trophy className={`w-5 h-5 flex-shrink-0 ${settledYesWins ? "text-emerald-400" : "text-rose-400"}`} />
         <div>
           <p className={`text-sm font-bold ${settledYesWins ? "text-emerald-400" : "text-rose-400"}`}>
-            {settledYesWins ? "YES 方获胜" : "NO 方获胜"}
+            {settledYesWins ? "YES Wins" : "NO Wins"}
           </p>
           <p className="text-xs text-zinc-400">
             {settledYesWins
-              ? "信心指数 > 50%，YES 持仓者按比例瓜分 NO 方资金"
-              : "信心指数 < 50%，NO 持仓者按比例瓜分 YES 方资金"}
+              ? "Confidence > 50% — YES holders share the NO pool proportionally."
+              : "Confidence < 50% — NO holders share the YES pool proportionally."}
           </p>
         </div>
       </div>
@@ -606,7 +606,7 @@ export default function MarketDetailPage() {
       <main className="max-w-2xl mx-auto px-4 pb-24">
         <div className="pt-5 mb-5">
           <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors">
-            <ArrowLeft className="w-4 h-4" />返回市场列表
+            <ArrowLeft className="w-4 h-4" />Back to Views
           </Link>
         </div>
 
@@ -616,13 +616,13 @@ export default function MarketDetailPage() {
             <div className="flex items-center gap-3">
               <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0" />
               <p className="text-sm text-emerald-300 font-medium">
-                🎉 你的市场已上链！快分享给朋友来下注吧
+                🎉 Your view is live on-chain! Share it with friends.
               </p>
             </div>
             <button
               onClick={() => setShowWelcomeBanner(false)}
               className="text-emerald-500/60 hover:text-emerald-400 transition-colors flex-shrink-0"
-              aria-label="关闭提示"
+              aria-label="Dismiss"
             >
               <X className="w-4 h-4" />
             </button>
@@ -640,7 +640,7 @@ export default function MarketDetailPage() {
                   disabled={isProcessing || isWrongChain}
                   className="flex items-center gap-1 text-xs text-zinc-500 hover:text-amber-400 transition-colors px-2 py-1 rounded-lg hover:bg-zinc-800"
                 >
-                  <X className="w-3 h-3" />申请关闭
+                  <X className="w-3 h-3" />Close View
                 </button>
               )}
               {status === STATUS_CLOSING && daysLeft === 0 && (
@@ -650,7 +650,7 @@ export default function MarketDetailPage() {
                   className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 transition-colors px-2 py-1 rounded-lg hover:bg-zinc-800 border border-amber-400/30"
                 >
                   {isProcessing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Clock className="w-3 h-3" />}
-                  触发结算
+                  Trigger Settlement
                 </button>
               )}
               <button onClick={handleShare} className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-all">
@@ -682,19 +682,19 @@ export default function MarketDetailPage() {
               />
             </div>
             <p className="text-center text-xs text-zinc-600 mt-1.5">
-              信心指数：{confidencePercent.toFixed(1)}% 倾向 YES
+              Confidence: {confidencePercent.toFixed(1)}% toward YES
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-zinc-950 rounded-xl p-3">
-              <p className="text-xs text-zinc-600 mb-1">总锁仓量 (TVL)</p>
+              <p className="text-xs text-zinc-600 mb-1">Total Value Locked (TVL)</p>
               <p className="text-sm font-bold text-white">{tvlFormatted} USDT</p>
             </div>
             <div className="bg-zinc-950 rounded-xl p-3">
-              <p className="text-xs text-zinc-600 mb-1">创建时间</p>
+              <p className="text-xs text-zinc-600 mb-1">Created</p>
               <p className="text-sm font-bold text-white">
-                {createdAt ? new Date(Number(createdAt) * 1000).toLocaleDateString("zh-CN") : "-"}
+                {createdAt ? new Date(Number(createdAt) * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "-"}
               </p>
             </div>
           </div>
@@ -703,17 +703,17 @@ export default function MarketDetailPage() {
         {/* ── 我的持仓 ── */}
         {isConnected && (yesBal > BigInt(0) || noBal > BigInt(0)) && (
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 mb-4">
-            <p className="text-xs font-medium text-zinc-500 mb-3">我的持仓</p>
+            <p className="text-xs font-medium text-zinc-500 mb-3">My Position</p>
             <div className="grid grid-cols-2 gap-3">
               {yesBal > BigInt(0) && (
                 <div className="bg-emerald-400/5 border border-emerald-400/20 rounded-xl p-3">
-                  <p className="text-xs text-emerald-500 mb-1">YES 持仓</p>
+                  <p className="text-xs text-emerald-500 mb-1">YES Position</p>
                   <p className="text-sm font-bold text-emerald-400">{(Number(yesValue) / 1_000_000).toFixed(2)} USDT</p>
                 </div>
               )}
               {noBal > BigInt(0) && (
                 <div className="bg-rose-400/5 border border-rose-400/20 rounded-xl p-3">
-                  <p className="text-xs text-rose-500 mb-1">NO 持仓</p>
+                  <p className="text-xs text-rose-500 mb-1">NO Position</p>
                   <p className="text-sm font-bold text-rose-400">{(Number(noValue) / 1_000_000).toFixed(2)} USDT</p>
                 </div>
               )}
@@ -728,15 +728,15 @@ export default function MarketDetailPage() {
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-zinc-300">奖励已领取</p>
-                  <p className="text-xs text-zinc-600">已成功领取本市场奖励</p>
+                  <p className="text-sm font-medium text-zinc-300">Reward Claimed</p>
+                  <p className="text-xs text-zinc-600">You have already claimed your reward for this view.</p>
                 </div>
               </div>
             ) : parseFloat(claimAmountFormatted) > 0 ? (
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs font-medium text-zinc-500">
-                    {isTie ? "退款金额" : "可领取奖励"}
+                    {isTie ? "Refund Amount" : "Claimable Reward"}
                   </p>
                   <span className="text-lg font-bold text-emerald-400">+{claimAmountFormatted} USDT</span>
                 </div>
@@ -745,16 +745,16 @@ export default function MarketDetailPage() {
                   className="w-full bg-emerald-500 hover:bg-emerald-400 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"
                 >
                   <Sparkles className="w-4 h-4" />
-                  {isTie ? "确认退款" : "领取奖励"}
+                  {isTie ? "Confirm Refund" : "Claim Reward"}
                 </button>
               </div>
             ) : (
               <div className="flex items-center gap-3 text-zinc-500">
                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-zinc-400">无可领取奖励</p>
+                  <p className="text-sm font-medium text-zinc-400">No reward to claim</p>
                   <p className="text-xs text-zinc-600">
-                    {isTie ? "平局退款已自动处理" : "你的持仓方向未获胜"}
+                    {isTie ? "Tie refund has been processed" : "Your position did not win this view."}
                   </p>
                 </div>
               </div>
@@ -767,8 +767,8 @@ export default function MarketDetailPage() {
           <div className="mb-4 flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3.5 py-3">
             <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-amber-300 font-medium">当前不在 Sepolia 测试网</p>
-              <p className="text-xs text-amber-400/70 mt-0.5">合约部署在 Sepolia，需要切换后才能进行交易</p>
+              <p className="text-xs text-amber-300 font-medium">Wrong network</p>
+              <p className="text-xs text-amber-400/70 mt-0.5">Contracts are deployed on Sepolia. Please switch to trade.</p>
             </div>
             <button
               onClick={() => switchChain({ chainId: sepolia.id })}
@@ -777,7 +777,7 @@ export default function MarketDetailPage() {
             >
               {isSwitchingChain ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : "切换"}
+              ) : "Switch"}
             </button>
           </div>
         )}
@@ -789,11 +789,11 @@ export default function MarketDetailPage() {
               <button
                 onClick={() => setTab("buy")}
                 className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${tab === "buy" ? "bg-white text-zinc-950" : "text-zinc-500 hover:text-zinc-300"}`}
-              >买入</button>
+              >Buy</button>
               <button
                 onClick={() => setTab("sell")}
                 className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${tab === "sell" ? "bg-white text-zinc-950" : "text-zinc-500 hover:text-zinc-300"}`}
-              >卖出</button>
+              >Sell</button>
             </div>
 
             <div className="flex gap-2 mb-4">
@@ -809,12 +809,12 @@ export default function MarketDetailPage() {
 
             <div className="mb-4">
               <div className="flex justify-between items-center mb-1.5">
-                <label className="text-xs text-zinc-500">{tab === "buy" ? "买入金额 (USDT)" : "卖出份额 (USDT)"}</label>
+                <label className="text-xs text-zinc-500">{tab === "buy" ? "Amount to buy (USDT)" : "Amount to sell (USDT)"}</label>
                 {isConnected && (
                   <span className="text-xs text-zinc-600">
                     {tab === "buy"
-                      ? `余额: ${usdtBalanceFormatted} USDT`
-                      : `持仓: ${parseFloat(formatUnits(side === "yes" ? yesBal : noBal, 6)).toFixed(2)} USDT`
+                      ? `Balance: ${usdtBalanceFormatted} USDT`
+                      : `Position: ${parseFloat(formatUnits(side === "yes" ? yesBal : noBal, 6)).toFixed(2)} USDT`
                     }
                   </span>
                 )}
@@ -860,11 +860,11 @@ export default function MarketDetailPage() {
               <div className="bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-3 mb-4">
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-xs">
-                    <span className="text-zinc-600">手续费 (1%)</span>
+                    <span className="text-zinc-600">Fee (1%)</span>
                     <span className="text-zinc-400">-{(parseFloat(amount) * 0.01).toFixed(4)} USDT</span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-zinc-500 font-medium">{tab === "buy" ? "实际买入" : "实际到账"}</span>
+                    <span className="text-zinc-500 font-medium">{tab === "buy" ? "You receive" : "You receive"}</span>
                     <span className="text-white font-medium">{(parseFloat(amount) * 0.99).toFixed(4)} USDT</span>
                   </div>
                 </div>
@@ -873,8 +873,8 @@ export default function MarketDetailPage() {
 
             {!isConnected ? (
               <div className="text-center py-3">
-                <p className="text-sm text-zinc-500 mb-1">请先连接钱包</p>
-                <p className="text-xs text-zinc-600">点击右上角连接按钮</p>
+                <p className="text-sm text-zinc-500 mb-1">Connect your wallet to trade</p>
+                <p className="text-xs text-zinc-600">Click the button in the top right</p>
               </div>
             ) : isWrongChain ? (
               <button
@@ -882,7 +882,7 @@ export default function MarketDetailPage() {
                 className="w-full bg-zinc-800 text-zinc-500 py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-not-allowed"
               >
                 <AlertTriangle className="w-4 h-4" />
-                请先切换到 Sepolia 测试网
+                Switch to Sepolia to trade
               </button>
             ) : tab === "buy" && needsApproval && amountBigInt > BigInt(0) ? (
               <button
@@ -891,9 +891,9 @@ export default function MarketDetailPage() {
                 className="w-full bg-amber-500 text-white py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-amber-400 transition-all disabled:opacity-50 active:scale-[0.98]"
               >
                 {isProcessing ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" />{isPending ? "等待钱包确认..." : "授权确认中..."}</>
+                  <><Loader2 className="w-4 h-4 animate-spin" />{isPending ? "Waiting for wallet..." : "Confirming approval..."}</>
                 ) : (
-                  <><CheckCircle2 className="w-4 h-4" />授权 USDT</>
+                  <><CheckCircle2 className="w-4 h-4" />Approve USDT</>
                 )}
               </button>
             ) : (
@@ -905,9 +905,9 @@ export default function MarketDetailPage() {
                 }`}
               >
                 {isProcessing ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" />{isPending ? "等待钱包确认..." : "链上确认中..."}</>
+                  <><Loader2 className="w-4 h-4 animate-spin" />{isPending ? "Waiting for wallet..." : "Confirming on-chain..."}</>
                 ) : (
-                  `${tab === "buy" ? "买入" : "卖出"} ${side.toUpperCase()}`
+                  `${tab === "buy" ? "Buy" : "Sell"} ${side.toUpperCase()}`
                 )}
               </button>
             )}
