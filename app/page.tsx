@@ -66,15 +66,48 @@ export default function HomePage() {
     },
   });
 
-  const isLoading = isCountLoading || isMarketsLoading || isQuestionsLoading || (activeTab === "closing" && isClosingDataLoading);
+  // 批量读取所有市场的权重数据（totalVolume, getTVL, participantCount），仅在"最热市场" Tab 激活时启用
+  const { data: weightData, isLoading: isWeightDataLoading } = useReadContracts({
+    contracts: addresses.flatMap((addr) => [
+      { address: addr, abi: MARKET_ABI, functionName: "totalVolume" as const },
+      { address: addr, abi: MARKET_ABI, functionName: "getTVL" as const },
+      { address: addr, abi: MARKET_ABI, functionName: "participantCount" as const },
+    ]),
+    query: {
+      enabled: activeTab === "hot" && addresses.length > 0,
+      refetchInterval: 15_000,
+    },
+  });
+
+  const isLoading = 
+    isCountLoading || 
+    isMarketsLoading || 
+    isQuestionsLoading || 
+    (activeTab === "closing" && isClosingDataLoading) ||
+    (activeTab === "hot" && isWeightDataLoading);
 
   // 根据 Tab 计算展示地址列表
   let displayAddresses: Address[];
   if (activeTab === "newest") {
     displayAddresses = [...addresses].reverse();
   } else if (activeTab === "hot") {
-    // 热门排序：沿用原始顺序（后续可按 TVL 权重排序）
-    displayAddresses = [...addresses];
+    // 热门排序：根据权重公式 (成交量 50% + TVL 30% + 参与人数 20%) 降序排序
+    const hotMarkets = addresses.map((addr, i) => {
+      const vol = Number(weightData?.[i * 3]?.result || 0n);
+      const tvl = Number(weightData?.[i * 3 + 1]?.result || 0n);
+      const participants = Number(weightData?.[i * 3 + 2]?.result || 0n);
+      
+      // 为了让参与人数与资金量在同一个量级上起作用，假设每个参与者平均贡献 100 USDT 的权重（100 * 10^6）
+      const participantWeight = participants * 100_000_000;
+      
+      // 权重公式：成交量 50% + TVL 30% + 参与人数 20%
+      const score = (vol * 0.5) + (tvl * 0.3) + (participantWeight * 0.2);
+      
+      return { addr, score };
+    });
+
+    hotMarkets.sort((a, b) => b.score - a.score);
+    displayAddresses = hotMarkets.map((m) => m.addr);
   } else {
     // 即将结算：过滤 status === CLOSING，并按 timeUntilSettlement 升序排序
     const closingMarkets = addresses
