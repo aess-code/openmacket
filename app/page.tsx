@@ -9,6 +9,7 @@ import Header from "@/components/Header";
 import MarketCard, { MarketData } from "@/components/MarketCard";
 import CreateModal from "@/components/CreateMarketModal";
 import { Search, Plus, Loader2, Flame, Clock, Timer } from "lucide-react";
+import Image from "next/image";
 
 const MARKET_FETCH_LIMIT = 50n;
 const STATUS_CLOSING = 1;
@@ -133,8 +134,17 @@ export default function HomePage() {
 
       <main className="max-w-3xl mx-auto px-4 pt-6">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2 tracking-tight">Pulse</h1>
-          <p className="text-zinc-400">Back your views with real conviction.</p>
+          <div className="mb-3">
+            <Image
+              src="/logo.png"
+              alt="Pulse Viewstake"
+              width={200}
+              height={67}
+              className="h-14 w-auto object-contain"
+              priority
+            />
+          </div>
+          <p className="text-zinc-400 text-base">Back your views with real conviction.</p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 mb-10">

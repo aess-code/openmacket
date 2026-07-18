@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   useAccount,
   useDisconnect,
@@ -78,11 +79,15 @@ export default function Header() {
       <header className="sticky top-0 z-40 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800/60">
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
           {/* Logo */}
-          <Link
-            href="/"
-            className="font-bold text-lg tracking-tight text-zinc-100 hover:text-white transition-colors"
-          >
-            Pulse
+          <Link href="/" className="flex items-center hover:opacity-90 transition-opacity">
+            <Image
+              src="/logo.png"
+              alt="Pulse Viewstake"
+              width={120}
+              height={40}
+              className="h-9 w-auto object-contain"
+              priority
+            />
           </Link>
 
           {/* Right side: disconnected / connected */}
