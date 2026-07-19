@@ -122,28 +122,32 @@ export default function HomePage() {
     <div className="min-h-screen bg-zinc-950 text-zinc-50 pb-20">
       <Header />
  
-<div className="mb-8 flex justify-center overflow-hidden">
-  <p
-    className="
-      text-center
-      text-[11px]
-      sm:text-xs
-      md:text-sm
-      font-medium
-      tracking-[0.25em]
-      text-transparent
-      bg-clip-text
-      bg-gradient-to-r
-      from-zinc-400
-      via-indigo-400
-      to-zinc-400
-      opacity-90
-      whitespace-nowrap
-    "
-  >
-    VIEW. ANALYZE. STAKE. BELIEVE.
-  </p>
-</div>
+<main className="max-w-3xl mx-auto px-4 pt-6">
+
+  <div className="mb-8 flex justify-center overflow-hidden">
+    <p
+      className="
+        text-center
+        text-[11px]
+        sm:text-xs
+        md:text-sm
+        font-medium
+        tracking-[0.25em]
+        text-transparent
+        bg-clip-text
+        bg-gradient-to-r
+        from-zinc-400
+        via-indigo-400
+        to-zinc-400
+        opacity-90
+        whitespace-nowrap
+      "
+    >
+      VIEW. ANALYZE. STAKE. BELIEVE.
+    </p>
+  </div>
+
+  <div className="flex flex-col sm:flex-row gap-4 mb-10">
 
         <div className="flex flex-col sm:flex-row gap-4 mb-10">
           <div className="relative flex-1">
