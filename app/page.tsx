@@ -132,21 +132,12 @@ export default function HomePage() {
         </p>
       </div>
 
-      <main className="max-w-3xl mx-auto px-4 pt-6">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Image
-              src="/icon.svg"
-              alt="Pulse"
-              width={48}
-              height={48}
-              className="h-12 w-12 object-contain"
-              priority
-            />
-            <h1 className="text-3xl font-bold tracking-tight text-zinc-100">Pulse</h1>
-          </div>
-          <p className="text-zinc-400 text-base">Back your views with real conviction.</p>
-        </div>
+<main className="max-w-3xl mx-auto px-4 pt-6">
+  <div className="mb-8 overflow-hidden">
+    <p className="text-zinc-500 text-xs sm:text-sm tracking-[0.25em] font-medium whitespace-nowrap">
+      V I E W . A N A L Y Z E . S T A K E . T O G E T H E R
+    </p>
+  </div>
 
         <div className="flex flex-col sm:flex-row gap-4 mb-10">
           <div className="relative flex-1">
