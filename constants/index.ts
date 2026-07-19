@@ -1,62 +1,20 @@
-// Auto-generated from Hardhat artifacts
-// MarketFactory v3 deployed on Sepolia: 0x314f31B853B0508Ffa87619E29a0061b10E710B1
-// Changes: dual treasury (A 0.3% / B 0.2%), buy/sell allowed in Closing state,
-//          settle() is parameterless and auto-calculates result from confidence index
+// Pulse Viewstake - Contract Constants (v4)
+// Market v4: index-driven pricing, virtual seed, creator fee stops on Close
 
 export const FACTORY_ADDRESS =
   (process.env.NEXT_PUBLIC_FACTORY_ADDRESS as `0x${string}`) ??
-  "0x314f31B853B0508Ffa87619E29a0061b10E710B1";
+  "0x29046a3Cea3380A37A1087Dec5D00107146DfA7E";
 
 export const USDT_ADDRESS =
   (process.env.NEXT_PUBLIC_USDT_ADDRESS as `0x${string}`) ??
   "0x8308ae75F58526667fAEA3F8A828CB215B751c51";
 
+export const YES = 0n;
+export const NO  = 1n;
+
 export const SUPPORTED_CHAINS = [
   { id: 11155111, name: "Sepolia" },
-  { id: 1, name: "Ethereum" },
 ];
-
-// YES/NO token IDs (match contract constants)
-export const YES = 0;
-export const NO  = 1;
-
-// Minimal ERC-20 ABI for USDT approval and balance
-export const USDT_ABI = [
-  {
-    "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
-    "name": "balanceOf",
-    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {"internalType": "address", "name": "spender", "type": "address"},
-      {"internalType": "uint256", "name": "amount", "type": "uint256"}
-    ],
-    "name": "approve",
-    "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {"internalType": "address", "name": "owner", "type": "address"},
-      {"internalType": "address", "name": "spender", "type": "address"}
-    ],
-    "name": "allowance",
-    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "decimals",
-    "outputs": [{"internalType": "uint8", "name": "", "type": "uint8"}],
-    "stateMutability": "view",
-    "type": "function"
-  }
-] as const;
 
 export const FACTORY_ABI = [
   {
@@ -590,13 +548,13 @@ export const MARKET_ABI = [
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "usdtAmount",
+        "name": "usdtIn",
         "type": "uint256"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "shares",
+        "name": "sharesOut",
         "type": "uint256"
       }
     ],
@@ -697,13 +655,13 @@ export const MARKET_ABI = [
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "shares",
+        "name": "sharesIn",
         "type": "uint256"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "usdtReturned",
+        "name": "usdtOut",
         "type": "uint256"
       }
     ],
@@ -1487,6 +1445,43 @@ export const MARKET_ABI = [
         "type": "uint256"
       }
     ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+] as const;
+
+export const USDT_ABI = [
+  {
+    "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
+    "name": "balanceOf",
+    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "address", "name": "spender", "type": "address"},
+      {"internalType": "uint256", "name": "amount", "type": "uint256"}
+    ],
+    "name": "approve",
+    "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "address", "name": "owner", "type": "address"},
+      {"internalType": "address", "name": "spender", "type": "address"}
+    ],
+    "name": "allowance",
+    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "decimals",
+    "outputs": [{"internalType": "uint8", "name": "", "type": "uint8"}],
     "stateMutability": "view",
     "type": "function"
   }
