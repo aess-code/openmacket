@@ -52,3 +52,4 @@
 1. 部署 `MockUSDT`。
 2. 部署 `MarketFactory`，传入 `MockUSDT` 的地址和你自己的钱包地址（作为初始 Treasury）。
 3. 将部署后得到的 `MarketFactory` 地址填入 Vercel 的环境变量中。
+Debug Preview Test
