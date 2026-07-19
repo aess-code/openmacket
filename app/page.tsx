@@ -117,11 +117,6 @@ export default function HomePage() {
   const handleCreateSuccess = useCallback(() => {
     queryClient.invalidateQueries();
   }, [queryClient]);
-
-  return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50 pb-20">
-      <Header />
- 
 <main className="max-w-3xl mx-auto px-4 pt-6">
 
   <div className="mb-8 flex justify-center overflow-hidden">
@@ -148,26 +143,25 @@ export default function HomePage() {
   </div>
 
   <div className="flex flex-col sm:flex-row gap-4 mb-10">
-        <div className="flex flex-col sm:flex-row gap-4 mb-10">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
-            <input
-              type="text"
-              placeholder="Search views..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-3.5 pl-12 pr-4 text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
-            />
-          </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 transition-colors active:scale-[0.98] shadow-lg shadow-indigo-500/20"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Viewstake</span>
-          </button>
-        </div>
+    <div className="relative flex-1">
+      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
+      <input
+        type="text"
+        placeholder="Search views..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl py-3.5 pl-12 pr-4 text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+      />
+    </div>
 
+    <button
+      onClick={() => setShowCreateModal(true)}
+      className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 transition-colors active:scale-[0.98] shadow-lg shadow-indigo-500/20"
+    >
+      <Plus className="w-5 h-5" />
+      <span>Viewstake</span>
+    </button>
+  </div>
         <div className="space-y-6">
           {/* Sort tabs */}
           <div className="flex items-center gap-6 border-b border-zinc-800/80 pb-3">
