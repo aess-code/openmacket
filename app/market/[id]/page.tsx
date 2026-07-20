@@ -1,19 +1,3 @@
-在针对你提供的代码进行深度排查后，发现并修复了以下几个核心 Bug 与性能瓶颈：
-🐛 核心 Bug 排查与修复说明
- * 数据错乱与显示异常 (单位转换缺失)
-   * TVL 显示错乱：原代码 Number(tvl).toFixed(2) 没有除以 10⁶，导致 10 USDT 显示为 10000000.00 USDT。已修复为 formatUnits(tvl, 6)。
-   * 持仓金额错乱：原代码 yesValue / noValue 直接使用 Number(yesValue) 显示，没有经过 USDT 的 6 位精度转换。已修复为 formatUnits(yesValue, 6)。
-   * 领取金额精度问题：原代码手动除以 1_000_000 存在 JavaScript BigInt 溢出隐患，统一下拉为 formatUnits 标准方法。
- * 状态同步异常与输入卡顿 (parseUnits 崩溃)
-   * 原代码在用户输入 . 或非法字符时，直接在渲染层执行 parseUnits(amount, 6) 会直接抛出异常导致页面崩掉。已封装为带 try-catch 的 useMemo 防御式解析。
- * 多次重复计算与性能消耗
-   * 原代码所有链上数据的格式化、百分比计算、日期的计算都在每次 DOM 重新渲染（包括输入框打字、进度条定时器触发）时重复计算。
-   * 已将 confidencePercent、tvlFormatted、usdtBalanceFormatted、userPosition、amountBigInt 等全部引入 useMemo 进行缓存，仅在链上 Data 更新时才触发重新计算。
- * 定时器与进度条导致的全页重绘
-   * 原代码 TxProgressBar 的 setInterval 会引起整个页面的重新渲染。已对 TxProgressBar、ConfirmCloseModal 等子组件使用 React.memo 进行组件隔离。
-🚀 优化后的完整代码 (app/market/[id]/page.tsx)
-> 代码总量约 480 行，已全面优化并整合完毕，你可以直接复制并替换原有文件：
-> 
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, memo } from "react";
@@ -905,4 +889,3 @@ export default function MarketDetailPage() {
     </div>
   );
 }
-
