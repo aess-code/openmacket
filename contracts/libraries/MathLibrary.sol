@@ -163,8 +163,30 @@ library MathLibrary {
         uint256 forSupply,
         uint256 againstSupply
     ) internal pure returns (uint256 index) {
-        uint256 total = forSupply + againstSupply;
+        // Prevent overflow when summing supplies
+        uint256 total;
+        unchecked {
+            total = forSupply + againstSupply;
+            if (total < forSupply) {
+                // If overflow occurs, scale down by 2 until it doesn't overflow
+                forSupply /= 2;
+                againstSupply /= 2;
+                total = forSupply + againstSupply;
+            }
+        }
         if (total == 0) return INITIAL_INDEX;
+        
+        // Prevent overflow in mulDiv: forSupply * BPS_DENOMINATOR
+        // If forSupply is near MaxUint256, multiplying by 10000 will overflow.
+        // We scale down both forSupply and total if necessary.
+        uint256 maxSafe = type(uint256).max / BPS_DENOMINATOR;
+        if (forSupply > maxSafe) {
+            uint256 scale = (forSupply / maxSafe) + 1;
+            forSupply /= scale;
+            total /= scale;
+            if (total == 0) return INITIAL_INDEX; // Edge case
+        }
+        
         index = mulDiv(forSupply, BPS_DENOMINATOR, total);
         return clampIndex(index);
     }
