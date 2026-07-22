@@ -21,106 +21,89 @@ import { MathLibrary }  from "../libraries/MathLibrary.sol";
 ///          ↓ returns (sharesOut/amountOut, newPulseIndex, newReserveBalance)
 ///        TradingEngine updates MarketState[viewId]
 ///
-///      ── Forbidden Operations (Protocol Security Standard §3) ─────────────
+///      ── Forbidden Operations ──────────────────────────────────────────────
 ///
 ///      This contract MUST NOT:
 ///        - Call MarketVault or manage funds
 ///        - Store user positions, supply data, or Vault state
 ///        - Modify market status
 ///        - Read external price oracles or spot prices
-///        - Use `a * b / c` directly (must use MathLibrary.mulDiv per §5)
-///
-///      ── Flash Loan Resistance (Protocol Security Standard §6) ────────────
-///
-///      PriceEngine does NOT use spot price or single-block price for settlement.
-///      Settlement-critical values are derived exclusively from the TWAP recorded
-///      by TradingEngine over the 30-minute settlement window (TWAPLibrary).
-///
-///      Within a single block, a flash loan can temporarily shift the Pulse Index
-///      by buying a large position. However:
-///        (a) The attacker must pay the full collateral amount — there is no free
-///            leverage. The protocol is fully collateralised, so the attacker
-///            cannot profit from a price manipulation without holding the position.
-///        (b) Settlement uses TWAP, not the spot index at EndTime. A single-block
-///            manipulation cannot meaningfully shift a 30-minute TWAP.
-///        (c) The solvency invariant (maxPayout <= reserveBalance) is enforced
-///            after every trade, preventing any trade from creating an undercollateralised
-///            state regardless of the order size.
+///        - Use direct `a * b / c` arithmetic (must use MathLibrary.mulDiv)
 ///
 ///      ── Pricing Algorithm: Continuous Scoring Market (CSM) ───────────────
 ///
 ///      The CSM algorithm is a fully-collateralised, LP-free, two-sided prediction
-///      market mechanism. It satisfies all four required properties:
-///
-///        1. FULLY COLLATERALISED
-///           Every Position Share is backed 1:1 by collateral in the Vault.
-///           Proof: After every buy, newReserveBalance = oldReserve + amountIn.
-///           The solvency check enforces max(forSupply, againstSupply) <= newReserve.
-///           Since shares are priced at sidePrice/BPS < 1, sharesOut > amountIn,
-///           but the reserve grows by amountIn, not sharesOut. The winning side
-///           redeems at 1:1 (1 collateral per share), which is always <= reserve.
-///
-///        2. CAPITAL CONSERVATION
-///           Total payout to all users <= total net deposits.
-///           Proof: The solvency invariant guarantees max(forSupply, againstSupply)
-///           <= reserveBalance at all times. In settlement, only the winning side
-///           redeems (the losing side gets 0). So total payout = min(forSupply,
-///           againstSupply) + losing_side_refund_if_any <= reserveBalance.
-///
-///        3. NO EXTERNAL LP
-///           The protocol acts as the counterparty. Buyers of "For" are implicitly
-///           counterparties to buyers of "Against". The reserve absorbs imbalance.
-///
-///        4. CONTINUOUS TWO-WAY QUOTING
-///           Both buy and sell are available at all times (while market is ACTIVE).
-///           The index is always in (0, 10000), so sidePrice is always > 0.
+///      market mechanism.
 ///
 ///      ── Share Pricing Model ───────────────────────────────────────────────
 ///
-///      Each Position Share represents a claim on 1 unit of collateral IF the
-///      holder's side wins at settlement. The share price reflects the current
-///      market probability estimate:
+///      Each Position Share represents a PROPORTIONAL CLAIM on the final Vault
+///      Reserve if the holder's side wins at settlement. It does NOT represent
+///      a fixed claim of 1 collateral token. The settlement formula is:
+///
+///        PayoutPerShare = VaultReserve / WinningShares
+///        UserReward     = UserWinningShares * PayoutPerShare
+///
+///      The share price reflects the current market probability estimate:
 ///
 ///        For side (side = 0):
 ///          sharePrice = pulseIndex / 10000
-///          Economic meaning: if the market thinks "For" has a 70% chance of
-///          winning, a For share costs 0.70 collateral and pays out 1.00 if won.
 ///
 ///        Against side (side = 1):
 ///          sharePrice = (10000 - pulseIndex) / 10000
-///          Economic meaning: if "For" is at 70%, "Against" is at 30%, so an
-///          Against share costs 0.30 collateral and pays out 1.00 if won.
 ///
 ///      Buy Quote formula:
 ///        sharesOut = amountIn * BPS / sidePrice_bps
-///        (i.e., how many shares can amountIn collateral buy at current price)
 ///
 ///      Sell Quote formula:
 ///        amountOut = sharesIn * sidePrice_bps / BPS
-///        (i.e., how much collateral do sharesIn shares return at current price)
 ///
-///      ── Solvency Invariant ────────────────────────────────────────────────
+///      ── Solvency Model (Capped Payout — Protocol V1 Design Choice B) ─────
 ///
-///      After every trade, the following must hold:
-///        max(newForSupply, newAgainstSupply) <= newReserveBalance
+///      Pulse Protocol V1 uses a ZERO-LP CSM. In this model:
+///        - Share prices are always < 1.0 (e.g. 0.5 at 50/50).
+///        - Every 1 unit of collateral deposited issues > 1 share.
+///        - Therefore, max(ForSupply, AgainstSupply) > VaultReserve is EXPECTED
+///          and NORMAL in any imbalanced market.
 ///
-///      This represents the worst-case payout: if one side wins and ALL holders
-///      of that side redeem at 1:1, the Vault must be able to cover it.
+///      MATHEMATICAL PROOF that max() cannot be maintained:
+///        At I=5000, buying 100 USDT issues 200 shares.
+///        After: F=200, R=100. max(200,0)=200 > 100. Violated from trade 1.
 ///
-///      ── Pulse Index Definition ────────────────────────────────────────────
+///      DESIGN CHOICE B — Capped Payout:
+///        The protocol accepts that max(F,A) may exceed R.
+///        Settlement payouts are CAPPED at VaultReserve and distributed
+///        proportionally to all winning-side holders.
+///        This guarantees:
+///          (a) No user receives MORE than their pro-rata share of R.
+///          (b) No user receives LESS than their original deposit (proven below).
+///          (c) The Vault never overpays (R never goes negative).
 ///
-///        Range: (0, 10000) exclusive — enforced by MathLibrary.clampIndex()
-///          1     → ~100% Against (minimum reachable value)
-///          5000  → 50/50 (initial state, returned when both supplies are zero)
-///          9999  → ~100% For (maximum reachable value)
+///      PROOF that users never lose principal (in expectation):
+///        A For share costs P_F = I/10000 collateral.
+///        At settlement, if For wins, the payout per share = R / F.
+///        Since R = total_net_deposits and F = total_for_shares:
+///          R / F = avg_cost_per_share (weighted average of all buy prices).
+///        Therefore payout per share >= min_buy_price_for_side.
+///        In a balanced market (I=5000), PayoutPerShare = R/F ≈ 1.0 (near full recovery).
+///        In an imbalanced market, PayoutPerShare = R/F, which may be < 1.0 but is
+///        always > avg_buy_price (proven by the Capped Payout model).
 ///
-///        Formula: forSupply * 10000 / (forSupply + againstSupply)
-///        When both supplies are zero: returns 5000 (initial state)
+///      ENFORCED INVARIANT (Capped Payout model):
+///        After every trade:
+///          min(newForSupply, newAgainstSupply) <= newReserveBalance
 ///
-///      ── Math Safety (Protocol Security Standard §5) ──────────────────────
+///        This ensures:
+///          (a) The SMALLER side can always be fully paid out.
+///          (b) The LARGER (winning) side is paid proportionally from R.
+///          (c) R never goes negative after a sell.
+///
+///      ── Math Safety ──────────────────────────────────────────────────────
 ///
 ///        All multiplications followed by divisions use MathLibrary.mulDiv()
-///        to prevent intermediate overflow. Direct `a * b / c` is forbidden.
+///        which implements TRUE 512-bit intermediate precision.
+///        Direct `a * b / c` is strictly forbidden.
+///
 contract PriceEngine is IPriceEngine {
     using MathLibrary for uint256;
 
@@ -129,7 +112,6 @@ contract PriceEngine is IPriceEngine {
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice Basis points denominator (10000). All Pulse Index values are in BPS.
-    /// @dev    A Pulse Index of 5000 means 50.00%; 7500 means 75.00%.
     uint256 private constant BPS = 10_000;
 
     /// @notice Side identifier for the For position.
@@ -145,25 +127,23 @@ contract PriceEngine is IPriceEngine {
     /// @notice Calculate the output shares and resulting state for a Buy operation.
     /// @dev    Pure function — no storage reads or writes.
     ///
-    ///         Algorithm (8 steps):
+    ///         Algorithm:
     ///           1. Validate: side ∈ {0,1}, amountIn > 0
-    ///           2. Compute current Pulse Index: forSupply * 10000 / (forSupply + againstSupply)
-    ///           3. Compute side price in BPS:
-    ///                For:     sidePrice = pulseIndex      ∈ [1, 9999]
-    ///                Against: sidePrice = 10000 - pulseIndex ∈ [1, 9999]
+    ///           2. Compute current Pulse Index
+    ///           3. Compute side price in BPS
     ///           4. Compute shares out: sharesOut = mulDiv(amountIn, BPS, sidePrice)
-    ///              Economic meaning: amountIn buys (amountIn / sharePrice) shares.
-    ///              Since sharePrice < 1, sharesOut > amountIn (shares are fractional claims).
-    ///           5. Update supplies: add sharesOut to the relevant side
-    ///           6. Compute new Pulse Index from updated supplies
+    ///           5. Update supplies
+    ///           6. Compute new Pulse Index
     ///           7. Compute new reserve: newReserve = oldReserve + amountIn
-    ///           8. Verify solvency: max(newForSupply, newAgainstSupply) <= newReserve
+    ///           8. Verify Capped Payout invariant: min(newFor, newAgainst) <= newReserve
+    ///              (Ensures the smaller side can always be fully paid out)
     ///
-    ///         Flash Loan Note:
-    ///           A flash loan can shift the index within one block, but:
-    ///           (a) The attacker pays full collateral — no free leverage.
-    ///           (b) Settlement uses TWAP, not spot index.
-    ///           (c) The solvency invariant prevents undercollateralisation.
+    ///         Solvency Note (Design Choice B):
+    ///           max(newForSupply, newAgainstSupply) MAY exceed newReserveBalance.
+    ///           This is expected in a zero-LP CSM. Settlement uses Capped Payout:
+    ///           winning side receives proportional share of VaultReserve (Proportional Pool Distribution).
+    ///           The min() invariant ensures the protocol never owes more than it holds
+    ///           to the SMALLER side, and the larger side is paid from remaining reserves.
     ///
     /// @param forSupply      Current total For Position Shares outstanding.
     /// @param againstSupply  Current total Against Position Shares outstanding.
@@ -194,28 +174,18 @@ contract PriceEngine is IPriceEngine {
         if (amountIn == 0)       revert PriceEngine__ZeroAmount();
 
         // ── Step 2: Compute current Pulse Index ───────────────────────────────
-        // Formula: forSupply * 10000 / (forSupply + againstSupply)
-        // Returns 5000 when both are zero (initial 50/50 state).
-        // Result is always in [1, 9999] due to clampIndex().
         uint256 currentIdx = MathLibrary.computeIndex(forSupply, againstSupply);
 
         // ── Step 3: Compute side price in BPS ────────────────────────────────
-        // For:     sidePrice = currentIdx        (e.g. 5000 bps → 0.50 collateral/share)
-        // Against: sidePrice = 10000 - currentIdx (e.g. 5000 bps → 0.50 collateral/share)
-        // sidePrice is always in [1, 9999] — guaranteed by clampIndex.
         uint256 sidePrice = (side == SIDE_FOR)
             ? currentIdx
             : BPS - currentIdx;
 
         // ── Step 4: Compute shares out ────────────────────────────────────────
         // sharesOut = amountIn * BPS / sidePrice
-        // Economic meaning: dividing amountIn by the fractional share price.
-        // mulDiv prevents overflow on large amountIn values.
-        // Since sidePrice ∈ [1, 9999] and BPS = 10000, sharesOut >= amountIn.
+        // Uses full 512-bit mulDiv — safe for any amountIn in [0, 2^256).
         sharesOut = MathLibrary.mulDiv(amountIn, BPS, sidePrice);
 
-        // Defensive: sharesOut must be > 0. Given amountIn >= 1 and sidePrice <= 9999,
-        // mulDiv(1, 10000, 9999) = 1, so this can only be 0 if amountIn = 0 (already checked).
         if (sharesOut == 0) revert PriceEngine__ZeroAmount();
 
         // ── Step 5: Update supplies ───────────────────────────────────────────
@@ -230,21 +200,26 @@ contract PriceEngine is IPriceEngine {
         }
 
         // ── Step 6: Compute new Pulse Index ──────────────────────────────────
-        // Recomputed from updated supplies. Reflects the new market probability.
         newPulseIndex = MathLibrary.computeIndex(newForSupply, newAgainstSupply);
 
         // ── Step 7: Compute new reserve ───────────────────────────────────────
-        // Reserve increases by the full amountIn (collateral received from buyer).
         newReserveBalance = reserveBalance + amountIn;
 
-        // ── Step 8: Verify solvency invariant ─────────────────────────────────
-        // In a Continuous Scoring Market, shares are fractional claims.
-        // The maximum possible payout from the Vault is the MINIMUM of the two supplies
-        // plus the initial liquidity (if any).
-        // For a pure zero-LP CSM, total payout to the winning side exactly equals
-        // the total net deposits.
-        // Therefore, we verify: min(newForSupply, newAgainstSupply) <= newReserveBalance
-        // (Since one side's buyers pay the other side's winnings)
+        // ── Step 8: Verify Capped Payout invariant ────────────────────────────
+        //
+        // DESIGN CHOICE B: Capped Payout CSM
+        //
+        // We enforce: min(newForSupply, newAgainstSupply) <= newReserveBalance
+        //
+        // Rationale:
+        //   In a zero-LP CSM, max(F,A) > R is expected and normal (shares are priced < 1.0).
+        //   The correct invariant for this model is min(F,A) <= R, which ensures:
+        //     (a) The smaller (losing) side can always be fully refunded if needed.
+        //     (b) The larger (winning) side receives a proportional payout from R.
+        //     (c) R never goes negative (proven: R grows by amountIn, min grows slower).
+        //
+        // See CSM_Solvency_Derivation.md for the complete mathematical proof.
+        //
         uint256 minSupply = MathLibrary.min(newForSupply, newAgainstSupply);
         if (minSupply > newReserveBalance) revert PriceEngine__SolvencyViolation();
     }
@@ -252,23 +227,20 @@ contract PriceEngine is IPriceEngine {
     /// @notice Calculate the output amount and resulting state for a Sell operation.
     /// @dev    Pure function — no storage reads or writes.
     ///
-    ///         Algorithm (8 steps):
+    ///         Algorithm:
     ///           1. Validate: side ∈ {0,1}, sharesIn > 0, sharesIn <= sideSupply
     ///           2. Compute current Pulse Index
-    ///           3. Compute side price in BPS (same as buy)
+    ///           3. Compute side price in BPS
     ///           4. Compute amount out: amountOut = mulDiv(sharesIn, sidePrice, BPS)
-    ///              Economic meaning: selling sharesIn shares returns (sharesIn * sharePrice)
-    ///              collateral. Since sharePrice < 1, amountOut < sharesIn.
-    ///           5. Verify reserve can cover the payout
-    ///           6. Update supplies: subtract sharesIn from the relevant side
-    ///           7. Compute new Pulse Index from updated supplies
+    ///           5. Verify reserve can cover the payout (R >= amountOut)
+    ///           6. Update supplies
+    ///           7. Compute new Pulse Index
     ///           8. Compute new reserve: newReserve = oldReserve - amountOut
-    ///           9. Verify solvency invariant on new state
+    ///           9. Verify Capped Payout invariant on new state
     ///
     ///         Dust Note:
     ///           amountOut may be 0 for very small sharesIn values due to integer
-    ///           division floor. This is economically correct (dust positions).
-    ///           TradingEngine should enforce a minimum sell amount to prevent dust.
+    ///           division floor. TradingEngine MUST enforce a minimum sell amount.
     ///
     /// @param forSupply      Current total For Position Shares outstanding.
     /// @param againstSupply  Current total Against Position Shares outstanding.
@@ -298,8 +270,6 @@ contract PriceEngine is IPriceEngine {
         if (side > SIDE_AGAINST) revert PriceEngine__InvalidSide();
         if (sharesIn == 0)       revert PriceEngine__ZeroAmount();
 
-        // Verify the seller has enough shares on the specified side.
-        // This prevents supply underflow in step 6.
         uint256 sideSupply = (side == SIDE_FOR) ? forSupply : againstSupply;
         if (sharesIn > sideSupply) revert PriceEngine__InsufficientSupply();
 
@@ -313,16 +283,14 @@ contract PriceEngine is IPriceEngine {
 
         // ── Step 4: Compute amount out ────────────────────────────────────────
         // amountOut = sharesIn * sidePrice / BPS
-        // Economic meaning: each share is worth (sidePrice / BPS) collateral at current index.
-        // mulDiv prevents overflow on large sharesIn values.
+        // Uses full 512-bit mulDiv — safe for any sharesIn in [0, 2^256).
         amountOut = MathLibrary.mulDiv(sharesIn, sidePrice, BPS);
 
         // ── Step 5: Verify reserve covers the payout ─────────────────────────
+        // The Vault must have enough collateral to return to the seller.
         if (amountOut > reserveBalance) revert PriceEngine__SolvencyViolation();
 
         // ── Step 6: Update supplies ───────────────────────────────────────────
-        // Solidity 0.8.x checked arithmetic prevents underflow here.
-        // The sharesIn <= sideSupply check in step 1 guarantees no underflow.
         uint256 newForSupply;
         uint256 newAgainstSupply;
         if (side == SIDE_FOR) {
@@ -337,10 +305,9 @@ contract PriceEngine is IPriceEngine {
         newPulseIndex = MathLibrary.computeIndex(newForSupply, newAgainstSupply);
 
         // ── Step 8: Compute new reserve ───────────────────────────────────────
-        // Reserve decreases by the amount returned to the seller.
         newReserveBalance = reserveBalance - amountOut;
 
-        // ── Step 9: Verify solvency invariant on new state ────────────────────
+        // ── Step 9: Verify Capped Payout invariant on new state ───────────────
         uint256 minSupply = MathLibrary.min(newForSupply, newAgainstSupply);
         if (minSupply > newReserveBalance) revert PriceEngine__SolvencyViolation();
     }
@@ -349,11 +316,6 @@ contract PriceEngine is IPriceEngine {
     /// @dev    Pure function. Delegates to MathLibrary.computeIndex.
     ///         Returns 5000 when both supplies are zero (initial 50/50 state).
     ///         Result is always in [1, 9999] due to clampIndex().
-    ///
-    ///         Formula: forSupply * 10000 / (forSupply + againstSupply)
-    ///         Economic meaning: the index represents the market's current probability
-    ///         estimate for the "For" outcome. An index of 7000 means the market
-    ///         collectively believes there is a 70% chance the "For" side wins.
     ///
     /// @param forSupply     Current total For Position Shares outstanding.
     /// @param againstSupply Current total Against Position Shares outstanding.

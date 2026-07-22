@@ -80,11 +80,17 @@ interface ISettlementManager {
     /// @param viewId The ViewID to settle.
     function settleMarket(uint256 viewId) external;
 
-    /// @notice Claim reward or refund after settlement.
+    /// @notice Claim reward or refund after settlement on behalf of any user.
     /// @dev Uses Checks-Effects-Interactions: claimed flag set before Vault payout.
-    ///      Anyone may call on behalf of a user (payout always goes to the position holder).
+    ///
+    ///      Permissionless Crank Design (Stage 4.5 Hardening):
+    ///        Anyone (Keeper, Bot, third party) may call this function for any user.
+    ///        The payout is ALWAYS sent to `user` (the position holder), never to msg.sender.
+    ///        This enables automated settlement bots without requiring the user to be online.
+    ///
     /// @param viewId The ViewID to claim from.
-    function claimReward(uint256 viewId) external;
+    /// @param user   Address of the position holder to claim for.
+    function claimReward(uint256 viewId, address user) external;
 
     // ─────────────────────────────────────────────────────────────────────────
     // View Functions

@@ -32,6 +32,8 @@ interface IPulseFactory {
     }
 
     /// @notice Complete on-chain record for a registered View.
+    /// @dev All fields except `viewId` are immutable after creation.
+    ///      This record is the single source of truth for a View's economic rules.
     struct ViewRecord {
         uint256    viewId;
         address    creator;
@@ -40,10 +42,11 @@ interface IPulseFactory {
         bytes32    metadataHash;
         uint256    createdAt;
         uint256    startTime;
-        uint256    endTime;      // 0 for PERMANENT views
-        address    vault;        // Address of the View's MarketVault
-        address    priceEngine;  // Immutable PriceEngine version snapshot at creation
-        FeeConfig  feeConfig;    // Immutable fee snapshot at creation
+        uint256    endTime;               // 0 for PERMANENT views
+        address    vault;                 // Address of the View's MarketVault
+        address    priceEngine;           // Immutable PriceEngine version snapshot at creation
+        address    settlementManager;     // Immutable SettlementManager snapshot at creation
+        FeeConfig  feeConfig;             // Immutable fee snapshot at creation
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -81,8 +84,14 @@ interface IPulseFactory {
     /// @notice Thrown when the ViewType is not a valid enum value.
     error Factory__InvalidViewType();
 
-    /// @notice Thrown when endTime <= startTime for a FIXED view.
+    /// @notice Thrown when endTime <= startTime for a FIXED view, or when the
+    ///         total duration is less than SETTLEMENT_WINDOW + MIN_TRADING_DURATION.
+    ///         Minimum required: endTime >= startTime + 30 minutes + 30 minutes = 1 hour.
     error Factory__InvalidTimeRange();
+
+    /// @notice Thrown when the market duration is too short to guarantee a valid settlement window.
+    ///         endTime must be at least startTime + SETTLEMENT_WINDOW + MIN_TRADING_DURATION.
+    error Factory__DurationTooShort();
 
     /// @notice Thrown when endTime is non-zero for a PERMANENT view.
     error Factory__PermanentViewMustHaveZeroEndTime();
@@ -103,10 +112,18 @@ interface IPulseFactory {
     /// @notice Create a new View and register it in the protocol Registry.
     /// @dev Atomically: validates parameters, generates ViewID, deploys MarketVault,
     ///      registers the View, and emits ViewCreated. Any failure reverts entirely.
+    ///
+    ///      Minimum Duration Constraint (Stage 4.5 Hardening):
+    ///        For FIXED views, endTime must satisfy:
+    ///          endTime >= startTime + SETTLEMENT_WINDOW + MIN_TRADING_DURATION
+    ///        where SETTLEMENT_WINDOW = 30 minutes and MIN_TRADING_DURATION = 30 minutes.
+    ///        This guarantees the settlement window (last 30 min) is always reachable
+    ///        and there is at least 30 minutes of active trading before it.
+    ///
     /// @param viewType    FIXED or PERMANENT.
     /// @param metadataURI URI pointing to off-chain metadata (IPFS/Arweave recommended).
     /// @param metadataHash Keccak256 hash of the metadata for on-chain integrity verification.
-    /// @param startTime   Unix timestamp when trading opens (must be <= block.timestamp or future).
+    /// @param startTime   Unix timestamp when trading opens.
     /// @param endTime     Unix timestamp when trading closes. Must be 0 for PERMANENT views.
     /// @return viewId     The unique ViewID assigned to the new View.
     function createView(

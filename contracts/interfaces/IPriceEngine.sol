@@ -11,8 +11,11 @@ pragma solidity ^0.8.20;
 ///      - Initial Pulse Index: 5000 (50.00%)
 ///      - Continuous two-way quoting at all times (no price lockup)
 ///      - No external LP required
-///      - Fully Collateralized: maximum possible redemption <= Vault balance
-///      - Capital Conservation: total payout <= total net deposits
+///      - Proportional Pool Distribution: Winning Shares represent a proportional claim
+///        on the final Vault Reserve, NOT a fixed 1:1 redemption. Settlement formula:
+///        PayoutPerShare = VaultReserve / WinningShares
+///        UserReward = UserWinningShares * PayoutPerShare
+///      - Capital Conservation: total payout <= total net deposits (Vault never overpays)
 ///      - Pulse Index always in range (0, 10000) exclusive
 interface IPriceEngine {
 

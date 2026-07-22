@@ -1,3 +1,29 @@
+# Dependencies
 node_modules/
+
+# Hardhat compilation artifacts and cache
+artifacts/
+cache/
+
+# Next.js
 .next/
+out/
+
+# Node
 *.node
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# TypeScript build info
+*.tsbuildinfo

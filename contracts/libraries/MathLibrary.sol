@@ -4,11 +4,22 @@ pragma solidity ^0.8.20;
 /// @title MathLibrary
 /// @notice Fixed-point math utilities for Pulse Protocol V1.
 /// @dev All arithmetic is performed in 256-bit unsigned integers.
-///      The library uses a WAD (1e18) fixed-point representation for high-precision
-///      calculations in PriceEngine and TWAP computations.
+///
+///      ── Full-Precision mulDiv ─────────────────────────────────────────────
+///
+///      The `mulDiv` function implements TRUE 512-bit intermediate precision
+///      using the technique from Remco Bloemen (https://xn--2-umb.com/21/muldiv)
+///      and used in OpenZeppelin Math.mulDiv (v5.x).
+///
+///      It computes `floor(a * b / denominator)` without overflow for any
+///      a, b, denominator in [0, 2^256). The intermediate product a*b is
+///      computed as a 512-bit number (hi, lo) using assembly.
+///
+///      This replaces the previous naive `(a * b) / denominator` which would
+///      revert with Panic(0x11) when a * b > type(uint256).max.
 ///
 ///      Precision conventions:
-///        WAD  = 1e18  — standard fixed-point unit for price/share calculations
+///        WAD  = 1e18  — standard fixed-point unit
 ///        BPS  = 10000 — basis points for Pulse Index and fee rates
 ///
 ///      All functions are `internal pure` — no storage, no side effects.
@@ -40,20 +51,31 @@ library MathLibrary {
     /// @notice Thrown when a division by zero is attempted.
     error Math__DivisionByZero();
 
-    /// @notice Thrown when a multiplication overflows uint256.
+    /// @notice Thrown when the result of mulDiv overflows uint256.
+    ///         This can only happen when the true result floor(a*b/d) > type(uint256).max.
     error Math__Overflow();
 
     /// @notice Thrown when a Pulse Index value is out of the valid range (0, 10000).
     error Math__IndexOutOfRange(uint256 index);
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Full-Precision Multiplication-Division
+    // Full-Precision 512-bit Multiplication-Division
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice Compute `(a * b) / denominator` with full 512-bit intermediate precision.
-    /// @dev Uses Solidity 0.8.x overflow protection. Reverts on division by zero.
-    ///      This is the core building block for all fixed-point math in the protocol.
-    ///      Based on the Uniswap V3 FullMath approach adapted for Solidity 0.8.x.
+    /// @notice Compute `floor(a * b / denominator)` with full 512-bit intermediate precision.
+    /// @dev    Implements the Remco Bloemen algorithm (https://xn--2-umb.com/21/muldiv),
+    ///         identical to OpenZeppelin Math.mulDiv (v5.x).
+    ///
+    ///         The intermediate product a*b is computed as a 512-bit integer (hi, lo)
+    ///         using the identity:
+    ///           a * b = hi * 2^256 + lo
+    ///         where `lo = a * b mod 2^256` and `hi = mulhi(a, b)`.
+    ///
+    ///         This function NEVER overflows for any a, b in [0, 2^256).
+    ///         It only reverts if:
+    ///           (a) denominator == 0
+    ///           (b) the true result floor(a*b/denominator) > type(uint256).max
+    ///
     /// @param a           First multiplicand.
     /// @param b           Second multiplicand.
     /// @param denominator Divisor. Must not be zero.
@@ -64,12 +86,98 @@ library MathLibrary {
         uint256 denominator
     ) internal pure returns (uint256 result) {
         if (denominator == 0) revert Math__DivisionByZero();
-        // Solidity 0.8.x reverts on overflow automatically.
-        // For values that may exceed uint256, callers should scale inputs first.
-        result = (a * b) / denominator;
+
+        // 512-bit multiply [hi, lo] = a * b
+        // lo = a * b mod 2^256
+        // hi = a * b >> 256
+        uint256 lo;
+        uint256 hi;
+        assembly {
+            let mm := mulmod(a, b, not(0))
+            lo     := mul(a, b)
+            hi     := sub(sub(mm, lo), lt(mm, lo))
+        }
+
+        // If hi == 0, the result fits in 256 bits — use standard division.
+        if (hi == 0) {
+            result = lo / denominator;
+            return result;
+        }
+
+        // Ensure result fits in 256 bits: hi < denominator.
+        // If hi >= denominator, the result would overflow uint256.
+        if (hi >= denominator) revert Math__Overflow();
+
+        // Subtract remainder from [hi, lo] to make it divisible by denominator.
+        // remainder = (a * b) mod denominator
+        uint256 remainder;
+        assembly {
+            remainder := mulmod(a, b, denominator)
+        }
+
+        // Subtract remainder from [hi, lo].
+        assembly {
+            hi := sub(hi, gt(remainder, lo))
+            lo := sub(lo, remainder)
+        }
+
+        // Factor out powers of two from denominator.
+        // Compute largest power of two divisor of denominator.
+        uint256 twos;
+        assembly {
+            twos := and(sub(0, denominator), denominator)
+        }
+
+        // Divide denominator by twos.
+        assembly {
+            denominator := div(denominator, twos)
+        }
+
+        // Divide [hi, lo] by twos.
+        assembly {
+            lo := div(lo, twos)
+        }
+
+        // Flip twos such that it is 2^256 / twos. If twos is zero, then it becomes one.
+        assembly {
+            twos := add(div(sub(0, twos), twos), 1)
+        }
+
+        // Shift in bits from hi into lo.
+        lo |= hi * twos;
+
+        // Invert denominator mod 2^256. Now that denominator is an odd number, it has
+        // an inverse modulo 2^256 such that denominator * inv = 1 mod 2^256.
+        // Compute the inverse by starting with a seed that is correct for four bits.
+        // That is, denominator * inv = 1 mod 2^4.
+        //
+        // IMPORTANT: All arithmetic in this block is intentionally modular (mod 2^256).
+        // We use `unchecked` to prevent Solidity 0.8.x from reverting on overflow.
+        // The overflow is expected and correct — we are computing modular arithmetic.
+        uint256 inv;
+        unchecked {
+            inv = (3 * denominator) ^ 2;
+
+            // Use the Newton-Raphson iteration to improve the precision.
+            // Thanks to Hensel's lifting lemma, this also works in modular arithmetic,
+            // doubling the correct bits in each step.
+            inv *= 2 - denominator * inv; // inverse mod 2^8
+            inv *= 2 - denominator * inv; // inverse mod 2^16
+            inv *= 2 - denominator * inv; // inverse mod 2^32
+            inv *= 2 - denominator * inv; // inverse mod 2^64
+            inv *= 2 - denominator * inv; // inverse mod 2^128
+            inv *= 2 - denominator * inv; // inverse mod 2^256
+
+            // Because the division is now exact we can divide by multiplying with the
+            // modular inverse of denominator. This will give us the correct result modulo
+            // 2^256. Since the preconditions guarantee that the outcome is less than 2^256,
+            // this is the final result.
+            result = lo * inv;
+        }
     }
 
-    /// @notice Compute `(a * b) / denominator` rounded up (ceiling division).
+    /// @notice Compute `ceil(a * b / denominator)` with full 512-bit intermediate precision.
+    /// @dev    Uses mulDiv internally. Adds 1 if there is a non-zero remainder.
     /// @param a           First multiplicand.
     /// @param b           Second multiplicand.
     /// @param denominator Divisor. Must not be zero.
@@ -79,15 +187,21 @@ library MathLibrary {
         uint256 b,
         uint256 denominator
     ) internal pure returns (uint256 result) {
-        if (denominator == 0) revert Math__DivisionByZero();
-        result = (a * b + denominator - 1) / denominator;
+        result = mulDiv(a, b, denominator);
+        // Add 1 if there is a remainder (i.e., a*b is not exactly divisible by denominator).
+        assembly {
+            // Check if (a * b) mod denominator != 0
+            if mulmod(a, b, denominator) {
+                result := add(result, 1)
+            }
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
     // WAD Fixed-Point Arithmetic
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice Multiply two WAD-scaled values: `(a * b) / WAD`.
+    /// @notice Multiply two WAD-scaled values: `floor(a * b / WAD)`.
     /// @param a WAD-scaled value.
     /// @param b WAD-scaled value.
     /// @return  WAD-scaled product.
@@ -95,7 +209,7 @@ library MathLibrary {
         return mulDiv(a, b, WAD);
     }
 
-    /// @notice Divide two WAD-scaled values: `(a * WAD) / b`.
+    /// @notice Divide two WAD-scaled values: `floor(a * WAD / b)`.
     /// @param a WAD-scaled numerator.
     /// @param b WAD-scaled denominator. Must not be zero.
     /// @return  WAD-scaled quotient.
@@ -108,7 +222,7 @@ library MathLibrary {
     // Basis Points Arithmetic
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// @notice Apply a basis-point rate to an amount: `(amount * bps) / 10000`.
+    /// @notice Apply a basis-point rate to an amount: `floor(amount * bps / 10000)`.
     /// @param amount The base amount.
     /// @param bps    Rate in basis points (e.g. 100 = 1.00%).
     /// @return       The portion of `amount` corresponding to `bps`.
@@ -154,8 +268,14 @@ library MathLibrary {
 
     /// @notice Calculate the Pulse Index from For and Against supply.
     /// @dev When both supplies are zero (initial state), returns INITIAL_INDEX (5000).
-    ///      Formula: forSupply * 10000 / (forSupply + againstSupply)
+    ///      Formula: floor(forSupply * 10000 / (forSupply + againstSupply))
     ///      Result is clamped to [1, 9999].
+    ///
+    ///      Overflow handling:
+    ///        Uses the full-precision mulDiv to compute forSupply * 10000 / total.
+    ///        The 512-bit intermediate handles any forSupply up to type(uint256).max.
+    ///        If forSupply + againstSupply overflows uint256, both are halved iteratively.
+    ///
     /// @param forSupply     Total For Position Shares outstanding.
     /// @param againstSupply Total Against Position Shares outstanding.
     /// @return index        Pulse Index in basis points.
@@ -163,30 +283,22 @@ library MathLibrary {
         uint256 forSupply,
         uint256 againstSupply
     ) internal pure returns (uint256 index) {
-        // Prevent overflow when summing supplies
+        // Prevent overflow when summing supplies.
         uint256 total;
         unchecked {
             total = forSupply + againstSupply;
+            // If overflow occurred (total < forSupply), scale down both supplies.
             if (total < forSupply) {
-                // If overflow occurs, scale down by 2 until it doesn't overflow
-                forSupply /= 2;
+                forSupply    /= 2;
                 againstSupply /= 2;
                 total = forSupply + againstSupply;
             }
         }
+
         if (total == 0) return INITIAL_INDEX;
-        
-        // Prevent overflow in mulDiv: forSupply * BPS_DENOMINATOR
-        // If forSupply is near MaxUint256, multiplying by 10000 will overflow.
-        // We scale down both forSupply and total if necessary.
-        uint256 maxSafe = type(uint256).max / BPS_DENOMINATOR;
-        if (forSupply > maxSafe) {
-            uint256 scale = (forSupply / maxSafe) + 1;
-            forSupply /= scale;
-            total /= scale;
-            if (total == 0) return INITIAL_INDEX; // Edge case
-        }
-        
+
+        // Use full-precision mulDiv: forSupply * BPS_DENOMINATOR / total.
+        // This handles forSupply up to type(uint256).max without overflow.
         index = mulDiv(forSupply, BPS_DENOMINATOR, total);
         return clampIndex(index);
     }

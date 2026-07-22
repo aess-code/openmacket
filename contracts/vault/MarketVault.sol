@@ -160,20 +160,27 @@ contract MarketVault is IMarketVault, ReentrancyGuard {
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @inheritdoc IMarketVault
-    /// @dev Checks-Effects-Interactions pattern:
-    ///      1. CHECK  — caller is TradingEngine, amount > 0
-    ///      2. EFFECT — increment totalDeposits
-    ///      3. INTERACT — safeTransferFrom(TradingEngine → this Vault)
-    ///      4. VERIFY — _assertInvariant() confirms actual ERC20 balance >= tracked assets
+    /// @dev Accounting-only function. Does NOT execute a token transfer.
     ///
-    ///      The TradingEngine must have already pulled `amount` tokens from the user
-    ///      (via safeTransferFrom) before calling this function, and must have approved
-    ///      this Vault to pull from itself, OR the TradingEngine transfers directly to
-    ///      this Vault and calls deposit() to update accounting.
+    ///      ── Deposit Flow (Stage 4.5 Hardening) ──────────────────────────────
     ///
-    ///      IMPORTANT: V1 only supports standard ERC20. If a fee-on-transfer token is used,
-    ///      the actual received amount will be less than `amount`, causing _assertInvariant()
-    ///      to revert with Vault__InvariantViolation.
+    ///      The correct deposit flow is:
+    ///        1. TradingEngine calls IERC20(token).safeTransferFrom(user, vault, netAmount)
+    ///           (User → Vault direct transfer)
+    ///        2. TradingEngine calls vault.deposit(netAmount)
+    ///           (Vault updates internal accounting: totalDeposits += amount)
+    ///
+    ///      This eliminates the double-transfer pattern (User → Engine → Vault) and
+    ///      the hidden coupling where the Vault needed to pull from the TradingEngine.
+    ///
+    ///      The invariant check after accounting update verifies that the actual
+    ///      ERC20 balance reflects the expected amount (detects fee-on-transfer tokens).
+    ///
+    ///      Checks-Effects-Interactions:
+    ///        1. CHECK  — caller is TradingEngine, amount > 0
+    ///        2. EFFECT — increment totalDeposits
+    ///        3. VERIFY — _assertInvariant() confirms actual ERC20 balance >= tracked assets
+    ///           (No Interactions step — transfer was already done by TradingEngine)
     function deposit(uint256 amount)
         external
         override
@@ -186,10 +193,10 @@ contract MarketVault is IMarketVault, ReentrancyGuard {
         // --- Effects ---
         totalDeposits += amount;
 
-        // --- Interactions ---
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-
         // --- Verify invariant ---
+        // The TradingEngine must have already transferred `amount` tokens directly
+        // from the user to this Vault address before calling deposit().
+        // If the actual balance does not reflect this, _assertInvariant() reverts.
         _assertInvariant();
 
         emit Deposited(viewId, msg.sender, amount);
