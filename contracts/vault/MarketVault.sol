@@ -307,7 +307,18 @@ contract MarketVault is IMarketVault, ReentrancyGuard {
     ///          (b) A critical accounting bug in this contract
     ///        In either case, the transaction reverts. No admin override exists.
     function _assertInvariant() internal view {
-        uint256 trackedNetAssets = totalDeposits - totalWithdrawals - totalSettled;
-        if (balance() < trackedNetAssets) revert Vault__InvariantViolation();
+        // Invariant: balance() >= totalDeposits - totalWithdrawals - totalSettled
+        //
+        // Rewritten as addition to avoid Solidity 0.8.x checked-arithmetic underflow.
+        // The subtraction form can panic when totalWithdrawals + totalSettled is
+        // incremented (Effects) before the transfer reduces balance (Interactions),
+        // because the accounting update temporarily makes the subtraction underflow.
+        //
+        // The addition form is mathematically equivalent and overflow-safe because
+        // balance(), totalWithdrawals, and totalSettled are all bounded by the actual
+        // ERC20 token supply (max uint256 / 2 in practice).
+        if (balance() + totalWithdrawals + totalSettled < totalDeposits) {
+            revert Vault__InvariantViolation();
+        }
     }
 }

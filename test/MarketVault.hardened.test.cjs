@@ -72,8 +72,10 @@ async function deployFixture() {
 }
 
 // Helper: fund the vault via engine
+// Since deposit() is pure-accounting (no transferFrom), the TradingEngine must
+// transfer tokens to the vault BEFORE calling deposit().
 async function fundVault(token, vault, engine, amount) {
-  await token.connect(engine).approve(await vault.getAddress(), amount);
+  await token.connect(engine).transfer(await vault.getAddress(), amount);
   await vault.connect(engine).deposit(amount);
 }
 
@@ -271,8 +273,9 @@ describe("Attack 3: Accounting Drift Detection", function () {
     await vault.waitForDeployment();
 
     // Normal deposit succeeds
+    // Pre-transfer tokens to vault first (pure-accounting deposit pattern)
     const amount = 1000n * UNIT;
-    await rToken.connect(engine).approve(await vault.getAddress(), amount);
+    await rToken.connect(engine).transfer(await vault.getAddress(), amount);
     await vault.connect(engine).deposit(amount);
     expect(await vault.balance()).to.equal(amount);
 
@@ -310,9 +313,9 @@ describe("Attack 4: Reentrancy Protection", function () {
     );
     await vault.waitForDeployment();
 
-    // Normal deposit (no callback on transferFrom)
+    // Normal deposit: pre-transfer tokens to vault first (pure-accounting pattern)
     const amount = 1000n * UNIT;
-    await mToken.connect(engine).approve(await vault.getAddress(), amount);
+    await mToken.connect(engine).transfer(await vault.getAddress(), amount);
     await vault.connect(engine).deposit(amount);
 
     // Configure the malicious token to attempt reentrancy on transfer
@@ -343,8 +346,9 @@ describe("Attack 4: Reentrancy Protection", function () {
     );
     await vault.waitForDeployment();
 
+    // Normal deposit: pre-transfer tokens to vault first (pure-accounting pattern)
     const amount = 1000n * UNIT;
-    await mToken.connect(engine).approve(await vault.getAddress(), amount);
+    await mToken.connect(engine).transfer(await vault.getAddress(), amount);
     await vault.connect(engine).deposit(amount);
 
     // Configure malicious token to attempt reentrancy on settle
@@ -465,7 +469,8 @@ describe("Event Signature Verification", function () {
   it("Deposited event includes viewId (indexed), caller (indexed), amount", async function () {
     const { engine, token, vault } = await loadFixture(deployFixture);
     const amount = 250n * UNIT;
-    await token.connect(engine).approve(await vault.getAddress(), amount);
+    // Pre-transfer tokens to vault before calling deposit() (pure-accounting pattern)
+    await token.connect(engine).transfer(await vault.getAddress(), amount);
     await expect(vault.connect(engine).deposit(amount))
       .to.emit(vault, "Deposited")
       .withArgs(VIEW_ID, engine.address, amount);

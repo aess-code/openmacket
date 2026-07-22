@@ -1,43 +1,42 @@
 /**
- * Pulse Protocol V1 — MarketVault Invariant Fuzz Test
+ * Pulse Protocol V1 — MarketVault Invariant Fuzz Test Suite
  *
- * This test simulates a large number of randomised deposit/withdraw/settle
- * sequences and verifies that the capital conservation invariant holds after
- * every operation:
+ * Verifies the capital conservation invariant holds under randomised sequences of
+ * deposit, withdraw, and settle operations.
  *
- *   IERC20(token).balanceOf(vault) >= totalDeposits - totalWithdrawals - totalSettled
+ * IMPORTANT: deposit() is pure-accounting (no transferFrom).
+ * The TradingEngine must transfer tokens to the Vault BEFORE calling deposit().
+ * All tests in this file simulate this by calling token.transfer(vault, amount)
+ * before vault.deposit(amount).
  *
- * Additionally verifies:
- *   - No operation can produce a negative balance (underflow)
- *   - Accounting counters are monotonically increasing
- *   - Vault balance is always >= 0
- *   - No operation can drain more than was deposited
- *
- * Fuzz parameters:
- *   - 500 randomised operation sequences
- *   - Each sequence: 10–50 operations
- *   - Operations: deposit, withdraw, settle (weighted 50/30/20)
- *   - Amounts: random in [1, 10000] USDT units
+ * Invariant checked after every operation:
+ *   actualBalance + totalWithdrawals + totalSettled >= totalDeposits
+ *   (equivalent to: actualBalance >= totalDeposits - totalWithdrawals - totalSettled)
  */
 
 const { expect }      = require("chai");
 const { ethers }      = require("hardhat");
 const { loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 
+const VIEW_ID  = 99n;
 const DECIMALS = 6n;
 const UNIT     = 10n ** DECIMALS;
-const VIEW_ID  = 1n;
+const SUPPLY   = 1_000_000_000n * UNIT; // 1 billion tokens for fuzz
 
-// Deterministic pseudo-random number generator (LCG)
-// Using a fixed seed for reproducibility
+// ─────────────────────────────────────────────────────────────────────────────
+// PRNG
+// ─────────────────────────────────────────────────────────────────────────────
 function makePRNG(seed) {
-  let state = BigInt(seed);
-  return function next(max) {
-    state = (state * 6364136223846793005n + 1442695040888963407n) & 0xFFFFFFFFFFFFFFFFn;
-    return Number(state % BigInt(max));
+  let s = seed >>> 0;
+  return function(max) {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s % max;
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Fixture
+// ─────────────────────────────────────────────────────────────────────────────
 async function deployFuzzFixture() {
   const [owner, engine, settlement, user1, user2, user3] = await ethers.getSigners();
 
@@ -45,8 +44,6 @@ async function deployFuzzFixture() {
   const token = await MockToken.deploy();
   await token.waitForDeployment();
 
-  // Mint a large supply to engine (simulates TradingEngine)
-  const SUPPLY = 100_000_000n * UNIT;
   await token.mint(engine.address, SUPPLY);
 
   const MarketVault = await ethers.getContractFactory("MarketVault");
@@ -58,33 +55,39 @@ async function deployFuzzFixture() {
   );
   await vault.waitForDeployment();
 
-  // Pre-approve vault for large amount
-  await token.connect(engine).approve(await vault.getAddress(), SUPPLY);
-
   return { owner, engine, settlement, user1, user2, user3, token, vault };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: deposit with pre-transfer (simulates TradingEngine flow)
+// ─────────────────────────────────────────────────────────────────────────────
+async function depositToVault(token, vault, engine, amount) {
+  await token.connect(engine).transfer(await vault.getAddress(), amount);
+  await vault.connect(engine).deposit(amount);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: assert invariant externally
 // ─────────────────────────────────────────────────────────────────────────────
 async function assertInvariantExternal(vault, label) {
-  const actualBalance  = await vault.balance();
-  const totalDeposits  = await vault.totalDeposits();
+  const actualBalance    = await vault.balance();
+  const totalDeposits    = await vault.totalDeposits();
   const totalWithdrawals = await vault.totalWithdrawals();
-  const totalSettled   = await vault.totalSettled();
-  const trackedNet     = totalDeposits - totalWithdrawals - totalSettled;
-
-  expect(actualBalance, `[${label}] actualBalance >= trackedNetAssets`).to.be.gte(trackedNet);
-  expect(totalDeposits, `[${label}] totalDeposits >= totalWithdrawals + totalSettled`)
+  const totalSettled     = await vault.totalSettled();
+  // Invariant: balance + withdrawals + settled >= deposits
+  expect(actualBalance + totalWithdrawals + totalSettled,
+    `[${label}] balance + withdrawals + settled >= deposits`)
+    .to.be.gte(totalDeposits);
+  expect(totalDeposits,
+    `[${label}] totalDeposits >= totalWithdrawals + totalSettled`)
     .to.be.gte(totalWithdrawals + totalSettled);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Invariant Fuzz Tests
 // ─────────────────────────────────────────────────────────────────────────────
-
 describe("MarketVault Invariant Fuzz Tests", function () {
-  this.timeout(120_000); // 2 minutes for fuzz runs
+  this.timeout(120_000);
 
   it("invariant holds across 200 randomised deposit sequences", async function () {
     const { engine, token, vault } = await loadFixture(deployFuzzFixture);
@@ -92,7 +95,7 @@ describe("MarketVault Invariant Fuzz Tests", function () {
 
     for (let i = 0; i < 200; i++) {
       const amount = BigInt(prng(10000) + 1) * UNIT;
-      await vault.connect(engine).deposit(amount);
+      await depositToVault(token, vault, engine, amount);
       await assertInvariantExternal(vault, `deposit_${i}`);
     }
   });
@@ -101,15 +104,16 @@ describe("MarketVault Invariant Fuzz Tests", function () {
     const { engine, user1, token, vault } = await loadFixture(deployFuzzFixture);
     const prng = makePRNG(0xCAFEBABE);
 
-    // First deposit enough to allow withdrawals
-    await vault.connect(engine).deposit(50_000n * UNIT);
+    // Seed the vault
+    await depositToVault(token, vault, engine, 50_000n * UNIT);
 
     for (let i = 0; i < 100; i++) {
       const currentBalance = await vault.balance();
       if (currentBalance === 0n) {
-        await vault.connect(engine).deposit(10_000n * UNIT);
+        await depositToVault(token, vault, engine, 10_000n * UNIT);
       }
-      const maxWithdraw = currentBalance > 0n ? currentBalance : 1n * UNIT;
+      const bal = await vault.balance();
+      const maxWithdraw = bal > 0n ? bal : 1n * UNIT;
       const amount = BigInt(prng(Number(maxWithdraw / UNIT) + 1)) * UNIT;
       if (amount === 0n) continue;
 
@@ -122,14 +126,15 @@ describe("MarketVault Invariant Fuzz Tests", function () {
     const { engine, settlement, user1, token, vault } = await loadFixture(deployFuzzFixture);
     const prng = makePRNG(0xFEEDFACE);
 
-    await vault.connect(engine).deposit(50_000n * UNIT);
+    await depositToVault(token, vault, engine, 50_000n * UNIT);
 
     for (let i = 0; i < 50; i++) {
       const currentBalance = await vault.balance();
       if (currentBalance === 0n) {
-        await vault.connect(engine).deposit(10_000n * UNIT);
+        await depositToVault(token, vault, engine, 10_000n * UNIT);
       }
-      const maxSettle = currentBalance > 0n ? currentBalance : 1n * UNIT;
+      const bal = await vault.balance();
+      const maxSettle = bal > 0n ? bal : 1n * UNIT;
       const amount = BigInt(prng(Number(maxSettle / UNIT) + 1)) * UNIT;
       if (amount === 0n) continue;
 
@@ -143,32 +148,27 @@ describe("MarketVault Invariant Fuzz Tests", function () {
     const prng = makePRNG(0xABCDEF01);
 
     // Seed the vault
-    await vault.connect(engine).deposit(100_000n * UNIT);
+    await depositToVault(token, vault, engine, 100_000n * UNIT);
 
     let opCount = { deposit: 0, withdraw: 0, settle: 0, skipped: 0 };
 
     for (let i = 0; i < 300; i++) {
-      const opType = prng(10); // 0-4: deposit, 5-7: withdraw, 8-9: settle
+      const opType = prng(10);
       const currentBalance = await vault.balance();
 
       if (opType < 5) {
-        // Deposit
         const amount = BigInt(prng(5000) + 1) * UNIT;
-        await vault.connect(engine).deposit(amount);
+        await depositToVault(token, vault, engine, amount);
         opCount.deposit++;
       } else if (opType < 8) {
-        // Withdraw
         if (currentBalance === 0n) { opCount.skipped++; continue; }
-        const maxAmt = currentBalance;
-        const amount = BigInt(prng(Number(maxAmt / UNIT)) + 1) * UNIT;
+        const amount = BigInt(prng(Number(currentBalance / UNIT)) + 1) * UNIT;
         if (amount > currentBalance) { opCount.skipped++; continue; }
         await vault.connect(engine).withdraw(user1.address, amount);
         opCount.withdraw++;
       } else {
-        // Settle
         if (currentBalance === 0n) { opCount.skipped++; continue; }
-        const maxAmt = currentBalance;
-        const amount = BigInt(prng(Number(maxAmt / UNIT)) + 1) * UNIT;
+        const amount = BigInt(prng(Number(currentBalance / UNIT)) + 1) * UNIT;
         if (amount > currentBalance) { opCount.skipped++; continue; }
         await vault.connect(settlement).settle(user2.address, amount);
         opCount.settle++;
@@ -184,7 +184,7 @@ describe("MarketVault Invariant Fuzz Tests", function () {
     const { engine, settlement, user1, token, vault } = await loadFixture(deployFuzzFixture);
     const prng = makePRNG(0x12345678);
 
-    await vault.connect(engine).deposit(50_000n * UNIT);
+    await depositToVault(token, vault, engine, 50_000n * UNIT);
 
     let prevDeposits = 0n, prevWithdrawals = 0n, prevSettled = 0n;
 
@@ -194,7 +194,7 @@ describe("MarketVault Invariant Fuzz Tests", function () {
 
       if (op === 0) {
         const amount = BigInt(prng(1000) + 1) * UNIT;
-        await vault.connect(engine).deposit(amount);
+        await depositToVault(token, vault, engine, amount);
       } else if (op === 1 && currentBalance >= UNIT) {
         const amount = BigInt(prng(Number(currentBalance / UNIT)) + 1) * UNIT;
         if (amount <= currentBalance) {
@@ -222,23 +222,19 @@ describe("MarketVault Invariant Fuzz Tests", function () {
   });
 
   it("vault balance is always >= 0 (no underflow possible)", async function () {
-    // This is guaranteed by Solidity 0.8.x checked arithmetic,
-    // but we verify it explicitly through the balance() view function.
-    const { engine, settlement, user1, token, vault } = await loadFixture(deployFuzzFixture);
+    const { engine, user1, token, vault } = await loadFixture(deployFuzzFixture);
     const prng = makePRNG(0x99887766);
 
-    await vault.connect(engine).deposit(10_000n * UNIT);
+    await depositToVault(token, vault, engine, 10_000n * UNIT);
 
     for (let i = 0; i < 50; i++) {
       const currentBalance = await vault.balance();
       expect(currentBalance, `balance must be >= 0 at step ${i}`).to.be.gte(0n);
 
       if (currentBalance > 0n) {
-        // Try to withdraw exactly the balance (should succeed)
         await vault.connect(engine).withdraw(user1.address, currentBalance);
         expect(await vault.balance()).to.equal(0n);
-        // Refill
-        await vault.connect(engine).deposit(10_000n * UNIT);
+        await depositToVault(token, vault, engine, 10_000n * UNIT);
       }
     }
   });
@@ -247,16 +243,15 @@ describe("MarketVault Invariant Fuzz Tests", function () {
     const { engine, settlement, user1, user2, token, vault } = await loadFixture(deployFuzzFixture);
     const prng = makePRNG(0x55443322);
 
-    await vault.connect(engine).deposit(100_000n * UNIT);
+    await depositToVault(token, vault, engine, 100_000n * UNIT);
 
     for (let i = 0; i < 200; i++) {
       const op = prng(4);
       const currentBalance = await vault.balance();
 
       if (op < 2 || currentBalance === 0n) {
-        // Deposit
         const amount = BigInt(prng(2000) + 1) * UNIT;
-        await vault.connect(engine).deposit(amount);
+        await depositToVault(token, vault, engine, amount);
       } else if (op === 2 && currentBalance >= UNIT) {
         const amount = BigInt(prng(Number(currentBalance / UNIT)) + 1) * UNIT;
         if (amount <= currentBalance) {
@@ -269,14 +264,10 @@ describe("MarketVault Invariant Fuzz Tests", function () {
         }
       }
 
-      const totalDeposits    = await vault.totalDeposits();
-      const totalWithdrawals = await vault.totalWithdrawals();
-      const totalSettled     = await vault.totalSettled();
-
-      expect(
-        totalWithdrawals + totalSettled,
-        `[step ${i}] totalWithdrawals + totalSettled must never exceed totalDeposits`
-      ).to.be.lte(totalDeposits);
+      const d = await vault.totalDeposits();
+      const w = await vault.totalWithdrawals();
+      const s = await vault.totalSettled();
+      expect(w + s, `[step ${i}] withdrawals + settled <= deposits`).to.be.lte(d);
     }
   });
 });

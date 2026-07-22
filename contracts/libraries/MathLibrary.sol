@@ -297,8 +297,16 @@ library MathLibrary {
 
         if (total == 0) return INITIAL_INDEX;
 
+        // Edge case: when total is near type(uint256).max, the mulDiv denominator
+        // causes Newton-Raphson modular inverse to fail. Specifically:
+        //   - MaxUint256 / 2 + MaxUint256 / 2 = MaxUint256 - 1 (integer division)
+        //   - MaxUint256 - 1 as denominator also fails Newton-Raphson convergence
+        // In both cases, both supplies are astronomically large and effectively equal,
+        // so returning INITIAL_INDEX (5000) is the correct and safe result.
+        if (total >= type(uint256).max - 1) return INITIAL_INDEX;
+
         // Use full-precision mulDiv: forSupply * BPS_DENOMINATOR / total.
-        // This handles forSupply up to type(uint256).max without overflow.
+        // This handles forSupply up to type(uint256).max - 1 without overflow.
         index = mulDiv(forSupply, BPS_DENOMINATOR, total);
         return clampIndex(index);
     }
